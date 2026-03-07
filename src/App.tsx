@@ -29,6 +29,7 @@ import ReportsPage from "./pages/ReportsPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
 import PlaceholderPage from "./pages/PlaceholderPage";
+import IngestionPage from "./pages/IngestionPage";
 
 // Admin pages
 import DeliveriesPage from "./pages/DeliveriesPage";
@@ -84,7 +85,7 @@ const App = () => (
               <Route path="/admin/alerts/new" element={<ProtectedRoute allowedRoles={["admin"]}><AlertsPage /></ProtectedRoute>} />
               <Route path="/admin/alerts/:id" element={<ProtectedRoute allowedRoles={["admin"]}><AlertsPage /></ProtectedRoute>} />
               <Route path="/admin/deliveries" element={<ProtectedRoute allowedRoles={["admin"]}><DeliveriesPage /></ProtectedRoute>} />
-              <Route path="/admin/ingestion" element={<ProtectedRoute allowedRoles={["admin"]}><PlaceholderPage title="Data Ingestion" description="Climate and terrain data pipeline monitoring" /></ProtectedRoute>} />
+              <Route path="/admin/ingestion" element={<ProtectedRoute allowedRoles={["admin"]}><IngestionPage /></ProtectedRoute>} />
               <Route path="/admin/jobs" element={<ProtectedRoute allowedRoles={["admin"]}><JobsPage /></ProtectedRoute>} />
               <Route path="/admin/subscriptions" element={<ProtectedRoute allowedRoles={["admin"]}><SubscriptionsPage /></ProtectedRoute>} />
               <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["admin"]}><UsersPage /></ProtectedRoute>} />
@@ -120,11 +121,11 @@ const App = () => (
 
               {/* Legacy flat routes → redirect to role-prefixed */}
               <Route path="/dashboard" element={<RoleRedirect />} />
-              <Route path="/areas" element={<RoleRedirect fallback="/admin/areas" />} />
-              <Route path="/tiles" element={<RoleRedirect fallback="/admin/tiles" />} />
-              <Route path="/risk" element={<RoleRedirect fallback="/admin/risk" />} />
-              <Route path="/alerts" element={<RoleRedirect fallback="/admin/alerts" />} />
-              <Route path="/reports" element={<RoleRedirect fallback="/admin/reports" />} />
+              <Route path="/areas/*" element={<RoleRedirect fallback="/admin/areas" />} />
+              <Route path="/tiles/*" element={<RoleRedirect fallback="/admin/tiles" />} />
+              <Route path="/risk/*" element={<RoleRedirect fallback="/admin/risk" />} />
+              <Route path="/alerts/*" element={<RoleRedirect fallback="/admin/alerts" />} />
+              <Route path="/reports/*" element={<RoleRedirect fallback="/admin/reports" />} />
               <Route path="/settings" element={<Navigate to="/admin/settings" replace />} />
             </Route>
 
