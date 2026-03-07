@@ -19,6 +19,9 @@ import ResetPassword from "./pages/auth/ResetPassword";
 import AreasPage from "./pages/AreasPage";
 import AreaDetailPage from "./pages/AreaDetailPage";
 import TilesPage from "./pages/TilesPage";
+import RiskPage from "./pages/RiskPage";
+import AlertsPage from "./pages/AlertsPage";
+import ReportsPage from "./pages/ReportsPage";
 
 const queryClient = new QueryClient();
 
@@ -47,13 +50,20 @@ const App = () => (
               <Route path="/areas" element={<AreasPage />} />
               <Route path="/areas/:id" element={<AreaDetailPage />} />
               <Route path="/tiles" element={<TilesPage />} />
-              <Route path="/risk" element={<PlaceholderPage title="Risk Analysis" description="Baseline flood risk computation and tile-level assessment" />} />
-              <Route path="/alerts" element={<PlaceholderPage title="Alerts" description="Draft, review, approve, and dispatch flood alerts" />} />
+              <Route path="/risk" element={<RiskPage />} />
+              <Route path="/alerts" element={<AlertsPage />} />
 
               {/* Stakeholder + Admin */}
               <Route path="/workflow" element={
                 <ProtectedRoute allowedRoles={["admin", "stakeholder"]}>
                   <PlaceholderPage title="Alert Workflow" description="Multi-stage alert review and approval process" />
+                </ProtectedRoute>
+              } />
+
+              {/* Coordinator only */}
+              <Route path="/reports" element={
+                <ProtectedRoute allowedRoles={["coordinator", "admin", "stakeholder"]}>
+                  <ReportsPage />
                 </ProtectedRoute>
               } />
 
