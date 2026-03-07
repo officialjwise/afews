@@ -16,6 +16,9 @@ import Register from "./pages/auth/Register";
 import VerifyEmail from "./pages/auth/VerifyEmail";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
+import AreasPage from "./pages/AreasPage";
+import AreaDetailPage from "./pages/AreaDetailPage";
+import TilesPage from "./pages/TilesPage";
 
 const queryClient = new QueryClient();
 
