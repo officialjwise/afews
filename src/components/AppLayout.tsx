@@ -2,7 +2,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Outlet } from "react-router-dom";
 import { Bell } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { RoleSwitcher } from "@/components/RoleSwitcher";
 
 export function AppLayout() {
   return (
@@ -23,9 +23,7 @@ export function AppLayout() {
                   3
                 </span>
               </button>
-              <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center">
-                <span className="text-xs font-semibold text-primary-foreground">AD</span>
-              </div>
+              <RoleSwitcher />
             </div>
           </header>
           <main className="flex-1 overflow-auto">
