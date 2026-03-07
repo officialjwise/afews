@@ -34,7 +34,7 @@ const riskBadgeVariant: Record<string, "critical" | "high" | "moderate" | "low">
 export default function PublicSubscribe() {
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
-  const [channel, setChannel] = useState<"sms" | "whatsapp">("sms");
+  const [channels, setChannels] = useState<Set<"sms" | "whatsapp">>(new Set(["sms"]));
   const [otpCode, setOtpCode] = useState("");
   const [phoneToken, setPhoneToken] = useState<string | null>(null);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
@@ -43,6 +43,9 @@ export default function PublicSubscribe() {
 
   const handleSendOtp = async () => {
     setError(null);
+    if (channels.size === 0) {
+      setError("Please select at least one alert channel (SMS or WhatsApp)."); return;
+    }
     if (!phone.trim() || !phone.startsWith("+")) {
       setError("Please enter your phone number in international format (e.g. +233…)."); return;
     }
@@ -123,14 +126,24 @@ export default function PublicSubscribe() {
           <div className="space-y-6">
             <div className="space-y-3">
               <h3 className="text-sm font-semibold flex items-center gap-2"><Bell className="h-4 w-4 text-muted-foreground" /> How would you like to receive alerts?</h3>
+              <p className="text-xs text-muted-foreground">You can select both SMS and WhatsApp. If you choose WhatsApp, ensure your number is registered with WhatsApp.</p>
               <div className="flex gap-3">
-                {([{ value: "sms" as const, label: "SMS", icon: Phone }, { value: "whatsapp" as const, label: "WhatsApp", icon: MessageCircle }]).map(({ value, label, icon: Icon }) => (
-                  <button key={value} onClick={() => setChannel(value)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-md border text-sm transition-colors ${channel === value ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border hover:bg-muted"}`}>
+                {([{ value: "sms" as const, label: "SMS", icon: Phone }, { value: "whatsapp" as const, label: "WhatsApp", icon: MessageCircle }]).map(({ value, label, icon: Icon }) => {
+                  const selected = channels.has(value);
+                  return (
+                  <button key={value} onClick={() => setChannels(prev => { const next = new Set(prev); if (next.has(value)) next.delete(value); else next.add(value); return next; })}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-md border text-sm transition-colors ${selected ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border hover:bg-muted"}`}>
                     <Icon className="h-4 w-4" /> {label}
                   </button>
-                ))}
+                  );
+                })}
               </div>
+              {channels.has("whatsapp") && (
+                <div className="flex items-start gap-2 rounded-md bg-accent/50 border border-accent px-3 py-2">
+                  <MessageCircle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <p className="text-xs text-muted-foreground">Make sure the phone number you provide is registered with WhatsApp to receive alerts via WhatsApp.</p>
+                </div>
+              )}
             </div>
             <div className="space-y-3">
               <h3 className="text-sm font-semibold flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /> Your phone number</h3>
@@ -146,7 +159,7 @@ export default function PublicSubscribe() {
         {step === "otp" && (
           <div className="space-y-5">
             <p className="text-sm text-muted-foreground rounded-md bg-muted px-3 py-2">
-              A 6-digit code has been sent to <span className="font-medium text-foreground">{phone}</span> via {channel === "sms" ? "SMS" : "WhatsApp"}.
+              A 6-digit code has been sent to <span className="font-medium text-foreground">{phone}</span> via {[...channels].map(c => c === "sms" ? "SMS" : "WhatsApp").join(" & ")}.
             </p>
             <div className="space-y-2">
               <h3 className="text-sm font-semibold">Enter verification code</h3>
@@ -205,7 +218,7 @@ export default function PublicSubscribe() {
             <div className="space-y-2">
               <h2 className="text-lg font-semibold">You're Subscribed!</h2>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                You'll receive flood alerts via {channel === "sms" ? "SMS" : "WhatsApp"} at <span className="font-medium text-foreground">{phone}</span> when risk levels reach HIGH or SEVERE.
+                You'll receive flood alerts via {[...channels].map(c => c === "sms" ? "SMS" : "WhatsApp").join(" & ")} at <span className="font-medium text-foreground">{phone}</span> when risk levels reach HIGH or SEVERE.
               </p>
             </div>
             <div className="text-left max-w-sm mx-auto space-y-1.5">
