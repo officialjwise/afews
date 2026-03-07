@@ -1,16 +1,25 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Badge } from "@/components/ui/badge";
 import { StatusIndicator } from "@/components/StatusIndicator";
+import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   MapPin,
   Grid3X3,
   Users,
   Bell,
-  TrendingUp,
   Clock,
   Droplets,
+  CheckCircle2,
+  XCircle,
+  Send,
+  Loader2,
+  Activity,
+  Database,
 } from "lucide-react";
+
+/* ─── Mock data ─── */
 
 const recentAlerts = [
   { id: 1, area: "Makoko", severity: "critical" as const, time: "12 min ago", status: "dispatched" },
@@ -34,7 +43,17 @@ function riskColor(risk: number) {
   return "text-severity-low";
 }
 
+function riskBg(risk: number) {
+  if (risk >= 0.8) return "bg-severity-critical";
+  if (risk >= 0.6) return "bg-severity-high";
+  if (risk >= 0.4) return "bg-severity-moderate";
+  return "bg-severity-low";
+}
+
 export default function Dashboard() {
+  const { role, can } = useAuth();
+  const isAdmin = role === "admin";
+
   return (
     <div className="p-6 space-y-6 max-w-7xl">
       {/* Page header */}
@@ -45,38 +64,78 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Metrics row */}
+      {/* Primary metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard label="Total Areas" value={34} icon={MapPin} />
         <MetricCard
-          label="Active Alerts"
-          value={7}
-          icon={Bell}
-          trend={{ value: "2 from yesterday", positive: false }}
-        />
-        <MetricCard
-          label="Monitored Areas"
-          value={34}
-          icon={MapPin}
-        />
-        <MetricCard
-          label="Active Tiles"
-          value="1,248"
-          icon={Grid3X3}
-        />
-        <MetricCard
-          label="Subscribers"
+          label="Active Subscriptions"
           value="8,420"
           icon={Users}
           trend={{ value: "12% this week", positive: true }}
         />
+        <MetricCard
+          label="Pending Draft Alerts"
+          value={3}
+          icon={Bell}
+          trend={{ value: "2 from yesterday", positive: false }}
+        />
+        <MetricCard label="Active Tiles" value="1,248" icon={Grid3X3} />
       </div>
+
+      {/* Secondary metrics — admin-focused */}
+      {isAdmin && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="panel space-y-2">
+            <p className="metric-label">Ingestion Health</p>
+            <div className="flex items-center gap-2">
+              <StatusIndicator status="active" label="" />
+              <span className="text-sm font-medium">Last run succeeded</span>
+            </div>
+            <p className="text-xs text-muted-foreground">42 min ago · 3 sources synced</p>
+          </div>
+
+          <div className="panel space-y-2">
+            <p className="metric-label">Risk Computation</p>
+            <div className="flex items-center gap-2">
+              <StatusIndicator status="active" label="" />
+              <span className="text-sm font-medium">Up to date</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Last computed 18 min ago</p>
+          </div>
+
+          <div className="panel space-y-2">
+            <p className="metric-label">Delivery Stats</p>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1 text-sm font-medium text-status-active">
+                <Send className="h-3.5 w-3.5" /> 1,240
+              </span>
+              <span className="flex items-center gap-1 text-sm font-medium text-severity-critical">
+                <XCircle className="h-3.5 w-3.5" /> 18
+              </span>
+              <span className="flex items-center gap-1 text-sm font-medium text-status-pending">
+                <Loader2 className="h-3.5 w-3.5" /> 42
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">Sent · Failed · Pending</p>
+          </div>
+
+          <div className="panel space-y-2">
+            <p className="metric-label">Failed Jobs</p>
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-semibold text-severity-high">2</span>
+              <span className="text-sm text-muted-foreground">warnings</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Feature gen timeout · Retry queued</p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Alerts */}
         <div className="lg:col-span-2 panel space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="section-header">Recent Alerts</h2>
-            <button className="text-xs font-medium text-primary hover:underline">View all</button>
+            <Link to="/alerts" className="text-xs font-medium text-primary hover:underline">View all</Link>
           </div>
           <div className="space-y-1">
             <div className="grid grid-cols-[1fr_100px_100px_100px] gap-2 px-3 py-1.5">
@@ -102,32 +161,24 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Risk overview */}
+        {/* Top Risk Areas / Hotspots */}
         <div className="panel space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="section-header">Top Risk Areas</h2>
+            <h2 className="section-header">Top Hotspots</h2>
             <Droplets className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="space-y-3">
             {riskAreas.map((area) => (
-              <div key={area.name} className="space-y-1.5">
+              <Link to={`/areas/${encodeURIComponent(area.name)}`} key={area.name} className="block space-y-1.5 group">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{area.name}</span>
+                  <span className="text-sm font-medium group-hover:text-primary transition-colors">{area.name}</span>
                   <span className={`text-sm font-semibold font-mono ${riskColor(area.risk)}`}>
                     {(area.risk * 100).toFixed(0)}%
                   </span>
                 </div>
                 <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all ${
-                      area.risk >= 0.8
-                        ? "bg-severity-critical"
-                        : area.risk >= 0.6
-                        ? "bg-severity-high"
-                        : area.risk >= 0.4
-                        ? "bg-severity-moderate"
-                        : "bg-severity-low"
-                    }`}
+                    className={`h-full rounded-full transition-all ${riskBg(area.risk)}`}
                     style={{ width: `${area.risk * 100}%` }}
                   />
                 </div>
@@ -135,7 +186,7 @@ export default function Dashboard() {
                   <span>{area.tiles} tiles</span>
                   <span>{area.subscribers.toLocaleString()} subscribers</span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

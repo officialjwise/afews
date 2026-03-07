@@ -10,6 +10,7 @@ import {
   Activity,
   ClipboardList,
   ScrollText,
+  Grid3X3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -33,7 +34,8 @@ import { cn } from "@/lib/utils";
 
 const operationsNav: NavItem[] = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "stakeholder", "coordinator"] },
-  { title: "Areas & Tiles", url: "/areas", icon: Map, roles: ["admin", "stakeholder", "coordinator"] },
+  { title: "Areas", url: "/areas", icon: Map, roles: ["admin", "stakeholder", "coordinator"] },
+  { title: "Tiles", url: "/tiles", icon: Grid3X3, roles: ["admin", "stakeholder", "coordinator"] },
   { title: "Risk Analysis", url: "/risk", icon: Activity, roles: ["admin", "stakeholder", "coordinator"] },
   { title: "Alerts", url: "/alerts", icon: Bell, roles: ["admin", "stakeholder", "coordinator"] },
   { title: "Field Reports", url: "/reports", icon: ClipboardList, roles: ["coordinator"] },
