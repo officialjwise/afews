@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Loader2, UserPlus } from "lucide-react";
 import { AuthShell } from "./Login";
+import { PhoneInput } from "@/components/ui/phone-input";
 
 type Step = "phone" | "verify" | "details";
 
@@ -32,63 +33,44 @@ export default function Register() {
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!phone.trim()) {
-      setError("Please enter your phone number.");
-      return;
-    }
+    if (!phone || phone.length < 6) { setError("Please enter a valid phone number."); return; }
     setIsLoading(true);
     try {
-      // TODO: POST /v1/auth/otp/request
       await new Promise((r) => setTimeout(r, 1200));
       setStep("verify");
-    } catch {
-      setError("Failed to send verification code.");
-    } finally {
-      setIsLoading(false);
-    }
+    } catch { setError("Failed to send verification code."); }
+    finally { setIsLoading(false); }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleVerifyOtp = useCallback(async () => {
     setError(null);
-    if (otpCode.length < 6) {
-      setError("Please enter the full 6-digit code.");
-      return;
-    }
+    if (otpCode.length < 6) { setError("Please enter the full 6-digit code."); return; }
     setIsLoading(true);
     try {
-      // TODO: POST /v1/auth/otp/verify
       await new Promise((r) => setTimeout(r, 1000));
       setStep("details");
-    } catch {
-      setError("Invalid verification code.");
-    } finally {
-      setIsLoading(false);
+    } catch { setError("Invalid verification code."); }
+    finally { setIsLoading(false); }
+  }, [otpCode]);
+
+  // Auto-verify OTP
+  useEffect(() => {
+    if (otpCode.length === 6 && step === "verify") {
+      handleVerifyOtp();
     }
-  };
+  }, [otpCode, step, handleVerifyOtp]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!fullName || !email || !password || !role) {
-      setError("Please fill in all fields.");
-      return;
-    }
-    if (!passwordValid) {
-      setError("Password must be at least 8 characters with uppercase, lowercase, and a digit.");
-      return;
-    }
+    if (!fullName || !email || !password || !role) { setError("Please fill in all fields."); return; }
+    if (!passwordValid) { setError("Password must be at least 8 characters with uppercase, lowercase, and a digit."); return; }
     setIsLoading(true);
     try {
-      // TODO: POST /v1/auth/register
       await new Promise((r) => setTimeout(r, 1500));
-      // Redirect to verify-email page
       window.location.href = "/verify-email";
-    } catch {
-      setError("Registration failed. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+    } catch { setError("Registration failed. Please try again."); }
+    finally { setIsLoading(false); }
   };
 
   const stepLabels: Record<Step, string> = {
@@ -119,18 +101,8 @@ export default function Register() {
             <form onSubmit={handleRequestOtp} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone number</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+234 800 000 0000"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  autoFocus
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  We'll send a 6-digit code to verify your phone.
-                </p>
+                <PhoneInput value={phone} onChange={setPhone} defaultCountry="GH" />
+                <p className="text-xs text-muted-foreground">We'll send a 6-digit code to verify your phone.</p>
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send verification code"}
@@ -139,97 +111,57 @@ export default function Register() {
           )}
 
           {step === "verify" && (
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
+            <div className="space-y-4">
               <p className="text-sm text-muted-foreground rounded-md bg-muted px-3 py-2">
-                Enter the 6-digit code sent to{" "}
-                <span className="font-medium text-foreground">{phone}</span>
+                Enter the 6-digit code sent to <span className="font-medium text-foreground">{phone}</span>
               </p>
               <div className="space-y-2">
                 <Label>Verification code</Label>
                 <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
                   <InputOTPGroup>
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <InputOTPSlot key={i} index={i} />
-                    ))}
+                    {Array.from({ length: 6 }).map((_, i) => <InputOTPSlot key={i} index={i} />)}
                   </InputOTPGroup>
                 </InputOTP>
+                <p className="text-xs text-muted-foreground">Code will auto-verify once all 6 digits are entered.</p>
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify code"}
-              </Button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("phone");
-                  setOtpCode("");
-                  setError(null);
-                }}
-                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Change phone number
+              {isLoading && <div className="flex justify-center"><Loader2 className="h-4 w-4 animate-spin text-primary" /></div>}
+              <button type="button"
+                onClick={() => { setStep("phone"); setOtpCode(""); setError(null); }}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <ArrowLeft className="h-3.5 w-3.5" /> Change phone number
               </button>
-            </form>
+            </div>
           )}
 
           {step === "details" && (
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full name</Label>
-                <Input
-                  id="fullName"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  autoFocus
-                  required
-                />
+                <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} autoFocus required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="regEmail">Email address</Label>
-                <Input
-                  id="regEmail"
-                  type="email"
-                  placeholder="you@organisation.org"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+                <Input id="regEmail" type="email" placeholder="you@organisation.org" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="regPassword">Password</Label>
-                <Input
-                  id="regPassword"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <Input id="regPassword" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 <ul className="text-xs text-muted-foreground space-y-0.5">
-                  <li className={password.length >= 8 ? "text-status-active" : ""}>
-                    At least 8 characters
-                  </li>
-                  <li className={/[A-Z]/.test(password) && /[a-z]/.test(password) ? "text-status-active" : ""}>
-                    Uppercase and lowercase letters
-                  </li>
-                  <li className={/\d/.test(password) ? "text-status-active" : ""}>
-                    At least one digit
-                  </li>
+                  <li className={password.length >= 8 ? "text-status-active" : ""}>At least 8 characters</li>
+                  <li className={/[A-Z]/.test(password) && /[a-z]/.test(password) ? "text-status-active" : ""}>Uppercase and lowercase letters</li>
+                  <li className={/\d/.test(password) ? "text-status-active" : ""}>At least one digit</li>
                 </ul>
               </div>
               <div className="space-y-2">
                 <Label>Role</Label>
                 <Select value={role} onValueChange={setRole}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your role" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select your role" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="coordinator">Coordinator</SelectItem>
                     <SelectItem value="stakeholder">Stakeholder</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Admin accounts are provisioned by system administrators.
-                </p>
+                <p className="text-xs text-muted-foreground">Admin accounts are provisioned by system administrators.</p>
               </div>
               <Button type="submit" className="w-full" disabled={isLoading || !passwordValid}>
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}
@@ -239,9 +171,7 @@ export default function Register() {
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link to="/login" className="text-primary hover:underline">
-              Log in
-            </Link>
+            <Link to="/login" className="text-primary hover:underline">Log in</Link>
           </div>
         </CardContent>
       </Card>

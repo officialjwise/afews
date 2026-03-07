@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,45 +22,35 @@ export default function Login() {
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!email.trim()) {
-      setError("Please enter your email address.");
-      return;
-    }
+    if (!email.trim()) { setError("Please enter your email address."); return; }
     setIsLoading(true);
     try {
-      // TODO: POST /v1/auth/otp/request
       await new Promise((r) => setTimeout(r, 1200));
       setCodeSent(true);
       setStep("credentials");
-    } catch {
-      setError("Failed to send verification code. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+    } catch { setError("Failed to send verification code. Please try again."); }
+    finally { setIsLoading(false); }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = useCallback(async (e?: React.FormEvent) => {
+    e?.preventDefault();
     setError(null);
-    if (!password) {
-      setError("Please enter your password.");
-      return;
-    }
-    if (otpCode.length < 6) {
-      setError("Please enter the 6-digit code sent to your phone.");
-      return;
-    }
+    if (!password) { setError("Please enter your password."); return; }
+    if (otpCode.length < 6) { setError("Please enter the 6-digit code sent to your phone."); return; }
     setIsLoading(true);
     try {
-      // TODO: POST /v1/auth/login { email, password, otp_code }
       await new Promise((r) => setTimeout(r, 1200));
       // On success: store tokens and redirect
-    } catch {
-      setError("Invalid credentials or verification code.");
-    } finally {
-      setIsLoading(false);
+    } catch { setError("Invalid credentials or verification code."); }
+    finally { setIsLoading(false); }
+  }, [password, otpCode]);
+
+  // Auto-submit when OTP is complete and password is filled
+  useEffect(() => {
+    if (otpCode.length === 6 && password && step === "credentials") {
+      handleLogin();
     }
-  };
+  }, [otpCode, password, step, handleLogin]);
 
   return (
     <AuthShell>
@@ -88,88 +78,54 @@ export default function Login() {
             <form onSubmit={handleRequestOtp} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@organisation.org"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoFocus
-                  required
-                />
+                <Input id="email" type="email" placeholder="you@organisation.org" value={email} onChange={(e) => setEmail(e.target.value)} autoFocus required />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Mail className="h-4 w-4" />
-                    Send code to my phone
-                  </>
-                )}
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (<><Mail className="h-4 w-4" /> Send code to my phone</>)}
               </Button>
             </form>
           ) : (
             <form onSubmit={handleLogin} className="space-y-4">
               {codeSent && (
                 <p className="text-sm text-muted-foreground rounded-md bg-muted px-3 py-2">
-                  A 6-digit code has been sent to the phone number linked to{" "}
-                  <span className="font-medium text-foreground">{email}</span>.
+                  A 6-digit code has been sent to the phone number linked to <span className="font-medium text-foreground">{email}</span>.
                 </p>
               )}
 
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoFocus
-                  required
-                />
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus required />
               </div>
 
               <div className="space-y-2">
                 <Label>Verification code</Label>
                 <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
                   <InputOTPGroup>
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <InputOTPSlot key={i} index={i} />
-                    ))}
+                    {Array.from({ length: 6 }).map((_, i) => <InputOTPSlot key={i} index={i} />)}
                   </InputOTPGroup>
                 </InputOTP>
+                <p className="text-xs text-muted-foreground">Code will auto-verify once all 6 digits are entered.</p>
               </div>
+
+              {isLoading && <div className="flex justify-center"><Loader2 className="h-4 w-4 animate-spin text-primary" /></div>}
 
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Log in"}
               </Button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setStep("email");
-                  setOtpCode("");
-                  setPassword("");
-                  setError(null);
-                }}
-                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Use a different email
+              <button type="button"
+                onClick={() => { setStep("email"); setOtpCode(""); setPassword(""); setError(null); }}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <ArrowLeft className="h-3.5 w-3.5" /> Use a different email
               </button>
             </form>
           )}
 
           <div className="mt-6 space-y-2 text-center text-sm">
-            <Link to="/forgot-password" className="text-primary hover:underline">
-              Forgot password?
-            </Link>
+            <Link to="/forgot-password" className="text-primary hover:underline">Forgot password?</Link>
             <p className="text-muted-foreground">
               Don't have an account?{" "}
-              <Link to="/register" className="text-primary hover:underline">
-                Register
-              </Link>
+              <Link to="/register" className="text-primary hover:underline">Register</Link>
             </p>
           </div>
         </CardContent>
@@ -184,9 +140,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 py-12">
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">A-FEWS</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          AI-Powered Flood Early Warning System
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">AI-Powered Flood Early Warning System</p>
       </div>
       {children}
     </div>
