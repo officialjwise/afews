@@ -7,39 +7,41 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusIndicator } from "@/components/StatusIndicator";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import {
-  User,
-  Settings2,
-  Bell,
-  Link2,
-  Activity,
-  Save,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  Globe,
-  Database,
-  Cloud,
-  MessageSquare,
+  User, Settings2, Bell, Link2, Activity, Save, Loader2, CheckCircle2,
+  Globe, Database, Cloud, MessageSquare,
 } from "lucide-react";
+
+const COUNTRIES = [
+  "Ghana", "Nigeria", "Kenya", "Senegal", "Tanzania", "Uganda", "Cameroon",
+  "Ethiopia", "South Africa", "Mozambique", "Rwanda", "Côte d'Ivoire",
+];
+
+const GHANA_CITIES = [
+  "Accra", "Kumasi", "Tamale", "Takoradi", "Cape Coast", "Ho", "Sunyani",
+  "Koforidua", "Bolgatanga", "Wa", "Tema", "Techiman",
+];
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [savedTab, setSavedTab] = useState<string | null>(null);
+  const [defaultCountry, setDefaultCountry] = useState("Ghana");
+  const [defaultCity, setDefaultCity] = useState("Accra");
 
   const handleSave = async (tab: string) => {
     setSaving(true);
     await new Promise((r) => setTimeout(r, 800));
     setSaving(false);
     setSavedTab(tab);
+    toast.success("Settings saved successfully");
     setTimeout(() => setSavedTab(null), 2000);
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl">
+    <div className="p-6 space-y-6">
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground mt-0.5">System configuration and platform preferences</p>
@@ -54,7 +56,7 @@ export default function SettingsPage() {
           <TabsTrigger value="health" className="gap-1.5"><Activity className="h-3.5 w-3.5" /> Health</TabsTrigger>
         </TabsList>
 
-        {/* ─── Profile ─── */}
+        {/* Profile */}
         <TabsContent value="profile" className="mt-6">
           <div className="panel max-w-lg space-y-5">
             <h2 className="text-sm font-semibold">Profile Settings</h2>
@@ -91,18 +93,32 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
 
-        {/* ─── System ─── */}
+        {/* System */}
         <TabsContent value="system" className="mt-6 space-y-6">
           <div className="panel max-w-lg space-y-5">
             <h2 className="text-sm font-semibold">Defaults</h2>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Default country</Label>
-                <Input defaultValue="Nigeria" />
+                <Select value={defaultCountry} onValueChange={setDefaultCountry}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Default city</Label>
-                <Input defaultValue="Lagos" />
+                <Select value={defaultCity} onValueChange={setDefaultCity}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {GHANA_CITIES.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>Default tile size (m)</Label>
@@ -155,11 +171,11 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Centre latitude</Label>
-                <Input defaultValue="6.5244" className="font-mono" />
+                <Input defaultValue="5.6037" className="font-mono" />
               </div>
               <div className="space-y-1.5">
                 <Label>Centre longitude</Label>
-                <Input defaultValue="3.3792" className="font-mono" />
+                <Input defaultValue="-0.1870" className="font-mono" />
               </div>
               <div className="space-y-1.5">
                 <Label>Default zoom</Label>
@@ -170,7 +186,7 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
 
-        {/* ─── Alerts ─── */}
+        {/* Alerts */}
         <TabsContent value="alerts" className="mt-6 space-y-6">
           <div className="panel max-w-lg space-y-5">
             <h2 className="text-sm font-semibold">SMS Provider</h2>
@@ -196,7 +212,7 @@ export default function SettingsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Business phone number</Label>
-                <Input defaultValue="+234 800 000 0001" />
+                <Input defaultValue="+233 20 000 0001" />
               </div>
             </div>
           </div>
@@ -236,9 +252,9 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
 
-        {/* ─── Integrations ─── */}
+        {/* Integrations */}
         <TabsContent value="integrations" className="mt-6">
-          <div className="space-y-3 max-w-lg">
+          <div className="space-y-3">
             {[
               { name: "Nominatim API", endpoint: "https://nominatim.openstreetmap.org", status: "active" as const },
               { name: "Overpass API", endpoint: "https://overpass-api.de/api", status: "active" as const },
@@ -262,30 +278,26 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
 
-        {/* ─── Health ─── */}
+        {/* Health */}
         <TabsContent value="health" className="mt-6">
-          <div className="space-y-3 max-w-lg">
+          <div className="space-y-3">
             {[
-              { name: "Database", endpoint: "GET /v1/health/db", status: "active" as const, detail: "PostgreSQL — 4ms latency" },
-              { name: "GCS Bucket", endpoint: "GET /v1/health/gcs", status: "active" as const, detail: "afews-data-bucket — accessible" },
-              { name: "Ingestion Pipeline", endpoint: "", status: "active" as const, detail: "Last run: 42 min ago — 3 sources synced" },
-              { name: "Risk Compute", endpoint: "", status: "active" as const, detail: "Last computed: 18 min ago — all areas" },
-              { name: "SMS Provider", endpoint: "", status: "active" as const, detail: "Twilio — 99.8% uptime" },
-              { name: "WhatsApp Provider", endpoint: "", status: "pending" as const, detail: "Meta Business API — rate limit approaching" },
+              { name: "Database", icon: Database, status: "active" as const, detail: "PostgreSQL — 4ms latency" },
+              { name: "GCS Bucket", icon: Cloud, status: "active" as const, detail: "afews-data-bucket — accessible" },
+              { name: "Ingestion Pipeline", icon: Activity, status: "active" as const, detail: "Last run: 42 min ago — 3 sources synced" },
+              { name: "Risk Compute", icon: Activity, status: "active" as const, detail: "Last computed: 18 min ago — all areas" },
+              { name: "SMS Provider", icon: MessageSquare, status: "active" as const, detail: "Twilio — 99.8% uptime" },
+              { name: "WhatsApp Provider", icon: MessageSquare, status: "pending" as const, detail: "Meta Business API — rate limit approaching" },
             ].map((h) => (
               <div key={h.name} className="panel flex items-center justify-between">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
-                    {h.name === "Database" ? <Database className="h-3.5 w-3.5 text-muted-foreground" /> :
-                     h.name.includes("GCS") ? <Cloud className="h-3.5 w-3.5 text-muted-foreground" /> :
-                     h.name.includes("SMS") || h.name.includes("WhatsApp") ? <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" /> :
-                     <Activity className="h-3.5 w-3.5 text-muted-foreground" />}
+                    <h.icon className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="text-sm font-medium">{h.name}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">{h.detail}</p>
-                  {h.endpoint && <p className="text-[10px] text-muted-foreground font-mono">{h.endpoint}</p>}
                 </div>
-                <StatusIndicator status={h.status} label={h.status === "active" ? "Healthy" : h.status === "pending" ? "Warning" : "Down"} />
+                <StatusIndicator status={h.status} label={h.status === "active" ? "Healthy" : "Warning"} />
               </div>
             ))}
           </div>
@@ -296,10 +308,7 @@ export default function SettingsPage() {
 }
 
 function SaveButton({ tab, saving, savedTab, onSave }: {
-  tab: string;
-  saving: boolean;
-  savedTab: string | null;
-  onSave: (tab: string) => void;
+  tab: string; saving: boolean; savedTab: string | null; onSave: (tab: string) => void;
 }) {
   return (
     <Button onClick={() => onSave(tab)} disabled={saving} size="sm">

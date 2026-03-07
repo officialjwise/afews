@@ -1,6 +1,7 @@
 import { MetricCard } from "@/components/MetricCard";
 import { Badge } from "@/components/ui/badge";
 import { StatusIndicator } from "@/components/StatusIndicator";
+import { WeatherDashboard } from "@/components/weather/WeatherDashboard";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import {
@@ -16,24 +17,24 @@ import {
   Send,
   Loader2,
   Activity,
-  Database,
+  Brain,
 } from "lucide-react";
 
-/* ─── Mock data ─── */
+/* ─── Mock data (Ghana) ─── */
 
 const recentAlerts = [
-  { id: 1, area: "Makoko", severity: "critical" as const, time: "12 min ago", status: "dispatched" },
-  { id: 2, area: "Lekki Phase 1", severity: "high" as const, time: "1h ago", status: "pending review" },
-  { id: 3, area: "Victoria Island", severity: "moderate" as const, time: "3h ago", status: "draft" },
-  { id: 4, area: "Surulere", severity: "low" as const, time: "6h ago", status: "dispatched" },
+  { id: 1, area: "Alajo", severity: "critical" as const, time: "12 min ago", status: "dispatched" },
+  { id: 2, area: "Adabraka", severity: "high" as const, time: "1h ago", status: "pending review" },
+  { id: 3, area: "Osu", severity: "moderate" as const, time: "3h ago", status: "draft" },
+  { id: 4, area: "Kaneshie", severity: "low" as const, time: "6h ago", status: "dispatched" },
 ];
 
 const riskAreas = [
-  { name: "Makoko", risk: 0.92, tiles: 48, subscribers: 1240 },
-  { name: "Ajegunle", risk: 0.87, tiles: 36, subscribers: 890 },
-  { name: "Lekki Phase 1", risk: 0.74, tiles: 52, subscribers: 2100 },
-  { name: "Ikoyi", risk: 0.61, tiles: 44, subscribers: 1560 },
-  { name: "Surulere", risk: 0.45, tiles: 40, subscribers: 720 },
+  { name: "Alajo", risk: 0.92, tiles: 48, subscribers: 1240 },
+  { name: "Nima", risk: 0.87, tiles: 36, subscribers: 890 },
+  { name: "Adabraka", risk: 0.74, tiles: 52, subscribers: 2100 },
+  { name: "Osu", risk: 0.61, tiles: 44, subscribers: 1560 },
+  { name: "Kaneshie", risk: 0.45, tiles: 40, subscribers: 720 },
 ];
 
 function riskColor(risk: number) {
@@ -55,13 +56,18 @@ export default function Dashboard() {
   const isAdmin = role === "admin";
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl">
+    <div className="p-6 space-y-6">
       {/* Page header */}
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">Operations Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          System overview and active flood risk monitoring
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-primary/10">
+          <Brain className="h-5 w-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Operations Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            AI-powered flood risk monitoring · Accra, Ghana
+          </p>
+        </div>
       </div>
 
       {/* Primary metrics */}
@@ -81,6 +87,9 @@ export default function Dashboard() {
         />
         <MetricCard label="Active Tiles" value="1,248" icon={Grid3X3} />
       </div>
+
+      {/* Live Weather */}
+      <WeatherDashboard />
 
       {/* Secondary metrics — admin-focused */}
       {isAdmin && (
@@ -120,12 +129,12 @@ export default function Dashboard() {
           </div>
 
           <div className="panel space-y-2">
-            <p className="metric-label">Failed Jobs</p>
+            <p className="metric-label">ML Pipeline</p>
             <div className="flex items-center gap-2">
-              <span className="text-lg font-semibold text-severity-high">2</span>
-              <span className="text-sm text-muted-foreground">warnings</span>
+              <div className="h-2 w-2 rounded-full bg-status-active animate-pulse" />
+              <span className="text-sm font-medium">Training Active</span>
             </div>
-            <p className="text-xs text-muted-foreground">Feature gen timeout · Retry queued</p>
+            <p className="text-xs text-muted-foreground">Feature gen · Risk model v2.1</p>
           </div>
         </div>
       )}
@@ -135,7 +144,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2 panel space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="section-header">Recent Alerts</h2>
-            <Link to="/alerts" className="text-xs font-medium text-primary hover:underline">View all</Link>
+            <Link to={`/${role}/alerts`} className="text-xs font-medium text-primary hover:underline">View all</Link>
           </div>
           <div className="space-y-1">
             <div className="grid grid-cols-[1fr_100px_100px_100px] gap-2 px-3 py-1.5">
@@ -169,7 +178,7 @@ export default function Dashboard() {
           </div>
           <div className="space-y-3">
             {riskAreas.map((area) => (
-              <Link to={`/areas/${encodeURIComponent(area.name)}`} key={area.name} className="block space-y-1.5 group">
+              <Link to={`/${role}/areas`} key={area.name} className="block space-y-1.5 group">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium group-hover:text-primary transition-colors">{area.name}</span>
                   <span className={`text-sm font-semibold font-mono ${riskColor(area.risk)}`}>
@@ -201,7 +210,7 @@ export default function Dashboard() {
         </div>
         <StatusIndicator status="active" label="Risk Engine Online" />
         <StatusIndicator status="active" label="Alert Dispatch Active" />
-        <StatusIndicator status="pending" label="ML Pipeline Training" />
+        <StatusIndicator status="active" label="ML Pipeline Running" />
       </div>
     </div>
   );
