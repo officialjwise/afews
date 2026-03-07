@@ -37,6 +37,7 @@ const App = () => (
           <Routes>
             {/* Public routes */}
             <Route path="/subscribe" element={<PublicSubscribe />} />
+            <Route path="/manage-subscription" element={<ManageSubscription />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
@@ -87,7 +88,7 @@ const App = () => (
               } />
               <Route path="/settings" element={
                 <ProtectedRoute allowedRoles={["admin"]}>
-                  <PlaceholderPage title="Settings" description="System configuration and platform preferences" />
+                  <SettingsPage />
                 </ProtectedRoute>
               } />
             </Route>
