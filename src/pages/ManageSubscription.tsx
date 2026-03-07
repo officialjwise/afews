@@ -1,35 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Shield, Phone, MessageCircle, CheckCircle2, Loader2, ArrowLeft, MapPin, Info, Trash2 } from "lucide-react";
+import { Shield, Phone, MessageCircle, CheckCircle2, Loader2, ArrowLeft, Info, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 
-/* ─── Mock data ─── */
 interface AreaOption {
-  id: string;
-  name: string;
-  city: string;
-  riskLevel: "low" | "moderate" | "high" | "severe";
+  id: string; name: string; city: string; riskLevel: "low" | "moderate" | "high" | "severe";
 }
 
 const ALL_AREAS: AreaOption[] = [
-  { id: "a1", name: "Makoko", city: "Lagos", riskLevel: "severe" },
-  { id: "a2", name: "Ajegunle", city: "Lagos", riskLevel: "high" },
-  { id: "a3", name: "Lekki Phase 1", city: "Lagos", riskLevel: "moderate" },
-  { id: "a4", name: "Victoria Island", city: "Lagos", riskLevel: "moderate" },
-  { id: "a5", name: "Surulere", city: "Lagos", riskLevel: "low" },
-  { id: "a6", name: "Ikoyi", city: "Lagos", riskLevel: "moderate" },
+  { id: "a1", name: "Alajo", city: "Accra", riskLevel: "severe" },
+  { id: "a2", name: "Nima", city: "Accra", riskLevel: "high" },
+  { id: "a3", name: "Adabraka", city: "Accra", riskLevel: "moderate" },
+  { id: "a4", name: "Osu", city: "Accra", riskLevel: "moderate" },
+  { id: "a5", name: "Kaneshie", city: "Accra", riskLevel: "low" },
+  { id: "a6", name: "Odawna", city: "Accra", riskLevel: "severe" },
 ];
 
 const riskBadgeVariant: Record<string, "critical" | "high" | "moderate" | "low"> = {
@@ -52,20 +43,15 @@ export default function ManageSubscription() {
 
   const handleSendOtp = async () => {
     setError(null);
-    if (channels.size === 0) {
-      setError("Please select at least one alert channel."); return;
-    }
-    if (!phone.trim() || !phone.startsWith("+")) {
-      setError("Please enter your phone number in international format.");
-      return;
-    }
+    if (channels.size === 0) { setError("Please select at least one alert channel."); return; }
+    if (!phone || phone.length < 6) { setError("Please enter a valid phone number."); return; }
     setIsLoading(true);
     await new Promise((r) => setTimeout(r, 1200));
     setIsLoading(false);
     setStep("otp");
   };
 
-  const handleVerifyOtp = async () => {
+  const handleVerifyOtp = useCallback(async () => {
     setError(null);
     if (otpCode.length < 6) { setError("Please enter the full 6-digit code."); return; }
     setIsLoading(true);
@@ -73,18 +59,22 @@ export default function ManageSubscription() {
     setPhoneToken("mock_phone_token_43chars_xxxxxxxxxxxxxxxx");
     setIsLoading(false);
     setStep("manage");
-  };
+  }, [otpCode]);
+
+  // Auto-verify when OTP is complete
+  useEffect(() => {
+    if (otpCode.length === 6 && step === "otp") {
+      handleVerifyOtp();
+    }
+  }, [otpCode, step, handleVerifyOtp]);
 
   const toggleArea = (id: string) => {
-    setSubscribedAreas((prev) =>
-      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
-    );
+    setSubscribedAreas((prev) => prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]);
     setSaved(false);
   };
 
   const handleUpdateAreas = async () => {
     setIsLoading(true);
-    // TODO: PUT /v1/subscriptions/areas
     await new Promise((r) => setTimeout(r, 1200));
     setIsLoading(false);
     setSaved(true);
@@ -92,7 +82,6 @@ export default function ManageSubscription() {
 
   const handleOptOut = async () => {
     setIsLoading(true);
-    // TODO: POST /v1/subscriptions/opt-out
     await new Promise((r) => setTimeout(r, 1200));
     setIsLoading(false);
     setOptOutDialog(false);
@@ -118,19 +107,12 @@ export default function ManageSubscription() {
         <div className="space-y-1">
           <h2 className="text-lg font-semibold tracking-tight">Manage Subscription</h2>
           <p className="text-sm text-muted-foreground">
-            {step === "manage"
-              ? "Update your subscribed areas or unsubscribe."
-              : "Verify your phone number to access your subscription."}
+            {step === "manage" ? "Update your subscribed areas or unsubscribe." : "Verify your phone number to access your subscription."}
           </p>
         </div>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+        {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
 
-        {/* ─── Verify ─── */}
         {step === "verify" && (
           <div className="space-y-5">
             <div className="space-y-3">
@@ -142,18 +124,11 @@ export default function ManageSubscription() {
                 ]).map(({ value, label, icon: Icon }) => {
                   const selected = channels.has(value);
                   return (
-                  <button
-                    key={value}
-                    onClick={() => setChannels(prev => { const next = new Set(prev); if (next.has(value)) next.delete(value); else next.add(value); return next; })}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-colors ${
-                      selected
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-card text-foreground border-border hover:bg-muted"
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {label}
-                  </button>
+                    <button key={value}
+                      onClick={() => setChannels(prev => { const next = new Set(prev); if (next.has(value)) next.delete(value); else next.add(value); return next; })}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-colors ${selected ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border hover:bg-muted"}`}>
+                      <Icon className="h-3.5 w-3.5" /> {label}
+                    </button>
                   );
                 })}
               </div>
@@ -165,13 +140,7 @@ export default function ManageSubscription() {
               )}
             </div>
             <div className="space-y-2">
-              <Input
-                type="tel"
-                placeholder="+234 800 000 0000"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="max-w-xs"
-              />
+              <PhoneInput value={phone} onChange={setPhone} className="max-w-sm" defaultCountry="GH" />
             </div>
             <Button onClick={handleSendOtp} disabled={isLoading || !phone.trim()}>
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send verification code"}
@@ -179,7 +148,6 @@ export default function ManageSubscription() {
           </div>
         )}
 
-        {/* ─── OTP ─── */}
         {step === "otp" && (
           <div className="space-y-5">
             <p className="text-sm text-muted-foreground rounded-md bg-muted px-3 py-2">
@@ -187,46 +155,30 @@ export default function ManageSubscription() {
             </p>
             <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
               <InputOTPGroup>
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <InputOTPSlot key={i} index={i} />
-                ))}
+                {Array.from({ length: 6 }).map((_, i) => <InputOTPSlot key={i} index={i} />)}
               </InputOTPGroup>
             </InputOTP>
+            <p className="text-xs text-muted-foreground">Code will auto-verify once all 6 digits are entered.</p>
             <div className="flex gap-3">
-              <Button onClick={handleVerifyOtp} disabled={isLoading || otpCode.length < 6}>
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
-              </Button>
+              {isLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
               <Button variant="ghost" onClick={() => { setStep("verify"); setOtpCode(""); }}>
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Back
+                <ArrowLeft className="h-3.5 w-3.5" /> Back
               </Button>
             </div>
           </div>
         )}
 
-        {/* ─── Manage ─── */}
         {step === "manage" && (
           <div className="space-y-6">
             <div className="space-y-2">
               <h3 className="text-sm font-semibold">Your subscribed areas</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {ALL_AREAS.map((area) => (
-                  <button
-                    key={area.id}
-                    onClick={() => toggleArea(area.id)}
-                    className={`flex items-center justify-between px-3 py-2.5 rounded-md border text-left transition-colors ${
-                      subscribedAreas.includes(area.id)
-                        ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20"
-                        : "bg-card border-border hover:bg-muted/50"
-                    }`}
-                  >
+                  <button key={area.id} onClick={() => toggleArea(area.id)}
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-md border text-left transition-colors ${subscribedAreas.includes(area.id) ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20" : "bg-card border-border hover:bg-muted/50"}`}>
                     <div className="flex items-center gap-2.5">
-                      <div className={`h-4 w-4 rounded-sm border flex items-center justify-center ${
-                        subscribedAreas.includes(area.id) ? "bg-primary border-primary" : "border-input"
-                      }`}>
-                        {subscribedAreas.includes(area.id) && (
-                          <CheckCircle2 className="h-3 w-3 text-primary-foreground" />
-                        )}
+                      <div className={`h-4 w-4 rounded-sm border flex items-center justify-center ${subscribedAreas.includes(area.id) ? "bg-primary border-primary" : "border-input"}`}>
+                        {subscribedAreas.includes(area.id) && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
                       </div>
                       <span className="text-sm font-medium">{area.name}</span>
                     </div>
@@ -235,46 +187,31 @@ export default function ManageSubscription() {
                 ))}
               </div>
             </div>
-
             <div className="flex items-center gap-3">
               <Button onClick={handleUpdateAreas} disabled={isLoading}>
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" /> Saved
-                  </>
-                ) : "Update areas"}
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? (<><CheckCircle2 className="h-4 w-4" /> Saved</>) : "Update areas"}
               </Button>
               <Button variant="outline" className="text-severity-critical hover:text-severity-critical" onClick={() => setOptOutDialog(true)}>
-                <Trash2 className="h-3.5 w-3.5" />
-                Unsubscribe
+                <Trash2 className="h-3.5 w-3.5" /> Unsubscribe
               </Button>
             </div>
-
             <Link to="/subscribe" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back to subscribe page
+              <ArrowLeft className="h-3.5 w-3.5" /> Back to subscribe page
             </Link>
           </div>
         )}
 
-        {/* Privacy */}
         <div className="border-t border-border pt-6 mt-8 text-xs text-muted-foreground flex items-start gap-2">
           <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-          <p>
-            Your data is used solely for flood alert delivery. Contact{" "}
-            <span className="text-foreground font-medium">support@afews.org</span> for help.
-          </p>
+          <p>Your data is used solely for flood alert delivery. Contact <span className="text-foreground font-medium">support@afews.org</span> for help.</p>
         </div>
       </div>
 
-      {/* Opt-out confirmation */}
       <Dialog open={optOutDialog} onOpenChange={setOptOutDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Unsubscribe from alerts?</DialogTitle>
-            <DialogDescription>
-              You will stop receiving all flood alerts. You can re-subscribe at any time.
-            </DialogDescription>
+            <DialogDescription>You will stop receiving all flood alerts. You can re-subscribe at any time.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOptOutDialog(false)}>Cancel</Button>

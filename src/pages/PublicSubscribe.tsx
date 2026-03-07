@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { Bell, MapPin, Phone, MessageCircle, CheckCircle2, Loader2, ArrowLeft, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PhoneInput } from "@/components/ui/phone-input";
 import afewsLogo from "@/assets/afews-logo.png";
 
 type Step = "phone" | "otp" | "areas" | "done";
@@ -46,8 +46,8 @@ export default function PublicSubscribe() {
     if (channels.size === 0) {
       setError("Please select at least one alert channel (SMS or WhatsApp)."); return;
     }
-    if (!phone.trim() || !phone.startsWith("+")) {
-      setError("Please enter your phone number in international format (e.g. +233…)."); return;
+    if (!phone || phone.length < 6) {
+      setError("Please enter a valid phone number."); return;
     }
     setIsLoading(true);
     try { await new Promise((r) => setTimeout(r, 1200)); setStep("otp"); }
@@ -55,14 +55,21 @@ export default function PublicSubscribe() {
     finally { setIsLoading(false); }
   };
 
-  const handleVerifyOtp = async () => {
+  const handleVerifyOtp = useCallback(async () => {
     setError(null);
     if (otpCode.length < 6) { setError("Please enter the full 6-digit code."); return; }
     setIsLoading(true);
     try { await new Promise((r) => setTimeout(r, 1000)); setPhoneToken("mock_token"); setStep("areas"); }
     catch { setError("Invalid verification code."); }
     finally { setIsLoading(false); }
-  };
+  }, [otpCode]);
+
+  // Auto-verify when OTP is complete
+  useEffect(() => {
+    if (otpCode.length === 6 && step === "otp") {
+      handleVerifyOtp();
+    }
+  }, [otpCode, step, handleVerifyOtp]);
 
   const handleSubscribe = async () => {
     setError(null);
@@ -131,10 +138,10 @@ export default function PublicSubscribe() {
                 {([{ value: "sms" as const, label: "SMS", icon: Phone }, { value: "whatsapp" as const, label: "WhatsApp", icon: MessageCircle }]).map(({ value, label, icon: Icon }) => {
                   const selected = channels.has(value);
                   return (
-                  <button key={value} onClick={() => setChannels(prev => { const next = new Set(prev); if (next.has(value)) next.delete(value); else next.add(value); return next; })}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-md border text-sm transition-colors ${selected ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border hover:bg-muted"}`}>
-                    <Icon className="h-4 w-4" /> {label}
-                  </button>
+                    <button key={value} onClick={() => setChannels(prev => { const next = new Set(prev); if (next.has(value)) next.delete(value); else next.add(value); return next; })}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-md border text-sm transition-colors ${selected ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border hover:bg-muted"}`}>
+                      <Icon className="h-4 w-4" /> {label}
+                    </button>
                   );
                 })}
               </div>
@@ -147,8 +154,8 @@ export default function PublicSubscribe() {
             </div>
             <div className="space-y-3">
               <h3 className="text-sm font-semibold flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /> Your phone number</h3>
-              <Input type="tel" placeholder="+233 20 000 0000" value={phone} onChange={(e) => setPhone(e.target.value)} className="max-w-xs" />
-              <p className="text-xs text-muted-foreground">Enter in international format (e.g. +233…).</p>
+              <PhoneInput value={phone} onChange={setPhone} className="max-w-sm" defaultCountry="GH" />
+              <p className="text-xs text-muted-foreground">Select your country and enter your phone number.</p>
             </div>
             <Button onClick={handleSendOtp} disabled={isLoading || !phone.trim()} className="w-full sm:w-auto">
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send verification code"}
@@ -166,11 +173,10 @@ export default function PublicSubscribe() {
               <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
                 <InputOTPGroup>{Array.from({ length: 6 }).map((_, i) => <InputOTPSlot key={i} index={i} />)}</InputOTPGroup>
               </InputOTP>
+              <p className="text-xs text-muted-foreground">Code will auto-verify once all 6 digits are entered.</p>
             </div>
             <div className="flex gap-3">
-              <Button onClick={handleVerifyOtp} disabled={isLoading || otpCode.length < 6}>
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
-              </Button>
+              {isLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
               <Button variant="ghost" onClick={() => { setStep("phone"); setOtpCode(""); setError(null); }}>
                 <ArrowLeft className="h-3.5 w-3.5" /> Change number
               </Button>
