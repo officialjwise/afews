@@ -84,7 +84,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <img src={afewsLogo} alt="A-FEWS" className="h-6 w-6 flex-shrink-0 object-contain" />
+          <img src={afewsLogo} alt="A-FEWS" className="h-8 w-8 flex-shrink-0 object-contain" />
           {!collapsed && (
             <div className="flex flex-col">
               <span className="text-sm font-semibold text-sidebar-accent-foreground tracking-tight">A-FEWS</span>
