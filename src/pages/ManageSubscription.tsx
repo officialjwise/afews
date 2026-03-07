@@ -1,0 +1,276 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Shield, Phone, MessageCircle, CheckCircle2, Loader2, ArrowLeft, MapPin, Info, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+
+/* ─── Mock data ─── */
+interface AreaOption {
+  id: string;
+  name: string;
+  city: string;
+  riskLevel: "low" | "moderate" | "high" | "severe";
+}
+
+const ALL_AREAS: AreaOption[] = [
+  { id: "a1", name: "Makoko", city: "Lagos", riskLevel: "severe" },
+  { id: "a2", name: "Ajegunle", city: "Lagos", riskLevel: "high" },
+  { id: "a3", name: "Lekki Phase 1", city: "Lagos", riskLevel: "moderate" },
+  { id: "a4", name: "Victoria Island", city: "Lagos", riskLevel: "moderate" },
+  { id: "a5", name: "Surulere", city: "Lagos", riskLevel: "low" },
+  { id: "a6", name: "Ikoyi", city: "Lagos", riskLevel: "moderate" },
+];
+
+const riskBadgeVariant: Record<string, "critical" | "high" | "moderate" | "low"> = {
+  severe: "critical", high: "high", moderate: "moderate", low: "low",
+};
+
+type Step = "verify" | "otp" | "manage";
+
+export default function ManageSubscription() {
+  const [step, setStep] = useState<Step>("verify");
+  const [phone, setPhone] = useState("");
+  const [channel, setChannel] = useState<"sms" | "whatsapp">("sms");
+  const [otpCode, setOtpCode] = useState("");
+  const [phoneToken, setPhoneToken] = useState<string | null>(null);
+  const [subscribedAreas, setSubscribedAreas] = useState<string[]>(["a1", "a2", "a3"]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [optOutDialog, setOptOutDialog] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const handleSendOtp = async () => {
+    setError(null);
+    if (!phone.trim() || !phone.startsWith("+")) {
+      setError("Please enter your phone number in international format.");
+      return;
+    }
+    setIsLoading(true);
+    await new Promise((r) => setTimeout(r, 1200));
+    setIsLoading(false);
+    setStep("otp");
+  };
+
+  const handleVerifyOtp = async () => {
+    setError(null);
+    if (otpCode.length < 6) { setError("Please enter the full 6-digit code."); return; }
+    setIsLoading(true);
+    await new Promise((r) => setTimeout(r, 1000));
+    setPhoneToken("mock_phone_token_43chars_xxxxxxxxxxxxxxxx");
+    setIsLoading(false);
+    setStep("manage");
+  };
+
+  const toggleArea = (id: string) => {
+    setSubscribedAreas((prev) =>
+      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]
+    );
+    setSaved(false);
+  };
+
+  const handleUpdateAreas = async () => {
+    setIsLoading(true);
+    // TODO: PUT /v1/subscriptions/areas
+    await new Promise((r) => setTimeout(r, 1200));
+    setIsLoading(false);
+    setSaved(true);
+  };
+
+  const handleOptOut = async () => {
+    setIsLoading(true);
+    // TODO: POST /v1/subscriptions/opt-out
+    await new Promise((r) => setTimeout(r, 1200));
+    setIsLoading(false);
+    setOptOutDialog(false);
+    setStep("verify");
+    setPhone("");
+    setOtpCode("");
+    setPhoneToken(null);
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-card">
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
+          <Shield className="h-5 w-5 text-primary" />
+          <div>
+            <h1 className="text-sm font-semibold tracking-tight">A-FEWS</h1>
+            <p className="text-[10px] text-muted-foreground">Flood Early Warning System</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold tracking-tight">Manage Subscription</h2>
+          <p className="text-sm text-muted-foreground">
+            {step === "manage"
+              ? "Update your subscribed areas or unsubscribe."
+              : "Verify your phone number to access your subscription."}
+          </p>
+        </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* ─── Verify ─── */}
+        {step === "verify" && (
+          <div className="space-y-5">
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                {([
+                  { value: "sms" as const, label: "SMS", icon: Phone },
+                  { value: "whatsapp" as const, label: "WhatsApp", icon: MessageCircle },
+                ]).map(({ value, label, icon: Icon }) => (
+                  <button
+                    key={value}
+                    onClick={() => setChannel(value)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-colors ${
+                      channel === value
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card text-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Input
+                type="tel"
+                placeholder="+234 800 000 0000"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="max-w-xs"
+              />
+            </div>
+            <Button onClick={handleSendOtp} disabled={isLoading || !phone.trim()}>
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send verification code"}
+            </Button>
+          </div>
+        )}
+
+        {/* ─── OTP ─── */}
+        {step === "otp" && (
+          <div className="space-y-5">
+            <p className="text-sm text-muted-foreground rounded-md bg-muted px-3 py-2">
+              Code sent to <span className="font-medium text-foreground">{phone}</span>
+            </p>
+            <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+              <InputOTPGroup>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <InputOTPSlot key={i} index={i} />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
+            <div className="flex gap-3">
+              <Button onClick={handleVerifyOtp} disabled={isLoading || otpCode.length < 6}>
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+              </Button>
+              <Button variant="ghost" onClick={() => { setStep("verify"); setOtpCode(""); }}>
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Manage ─── */}
+        {step === "manage" && (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">Your subscribed areas</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {ALL_AREAS.map((area) => (
+                  <button
+                    key={area.id}
+                    onClick={() => toggleArea(area.id)}
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-md border text-left transition-colors ${
+                      subscribedAreas.includes(area.id)
+                        ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20"
+                        : "bg-card border-border hover:bg-muted/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className={`h-4 w-4 rounded-sm border flex items-center justify-center ${
+                        subscribedAreas.includes(area.id) ? "bg-primary border-primary" : "border-input"
+                      }`}>
+                        {subscribedAreas.includes(area.id) && (
+                          <CheckCircle2 className="h-3 w-3 text-primary-foreground" />
+                        )}
+                      </div>
+                      <span className="text-sm font-medium">{area.name}</span>
+                    </div>
+                    <Badge variant={riskBadgeVariant[area.riskLevel]} className="text-[10px]">{area.riskLevel}</Badge>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Button onClick={handleUpdateAreas} disabled={isLoading}>
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" /> Saved
+                  </>
+                ) : "Update areas"}
+              </Button>
+              <Button variant="outline" className="text-severity-critical hover:text-severity-critical" onClick={() => setOptOutDialog(true)}>
+                <Trash2 className="h-3.5 w-3.5" />
+                Unsubscribe
+              </Button>
+            </div>
+
+            <Link to="/subscribe" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to subscribe page
+            </Link>
+          </div>
+        )}
+
+        {/* Privacy */}
+        <div className="border-t border-border pt-6 mt-8 text-xs text-muted-foreground flex items-start gap-2">
+          <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+          <p>
+            Your data is used solely for flood alert delivery. Contact{" "}
+            <span className="text-foreground font-medium">support@afews.org</span> for help.
+          </p>
+        </div>
+      </div>
+
+      {/* Opt-out confirmation */}
+      <Dialog open={optOutDialog} onOpenChange={setOptOutDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Unsubscribe from alerts?</DialogTitle>
+            <DialogDescription>
+              You will stop receiving all flood alerts. You can re-subscribe at any time.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOptOutDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleOptOut} disabled={isLoading}>
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Unsubscribe"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
