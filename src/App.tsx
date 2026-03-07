@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import PublicSubscribe from "./pages/PublicSubscribe";
+import ManageSubscription from "./pages/ManageSubscription";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/auth/Login";
@@ -22,6 +23,7 @@ import TilesPage from "./pages/TilesPage";
 import RiskPage from "./pages/RiskPage";
 import AlertsPage from "./pages/AlertsPage";
 import ReportsPage from "./pages/ReportsPage";
+import SettingsPage from "./pages/SettingsPage";
 
 const queryClient = new QueryClient();
 
