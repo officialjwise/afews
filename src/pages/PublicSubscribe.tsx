@@ -135,8 +135,15 @@ export default function PublicSubscribe() {
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-md border text-sm transition-colors ${selected ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border hover:bg-muted"}`}>
                     <Icon className="h-4 w-4" /> {label}
                   </button>
-                ))}
+                  );
+                })}
               </div>
+              {channels.has("whatsapp") && (
+                <div className="flex items-start gap-2 rounded-md bg-accent/50 border border-accent px-3 py-2">
+                  <MessageCircle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <p className="text-xs text-muted-foreground">Make sure the phone number you provide is registered with WhatsApp to receive alerts via WhatsApp.</p>
+                </div>
+              )}
             </div>
             <div className="space-y-3">
               <h3 className="text-sm font-semibold flex items-center gap-2"><Phone className="h-4 w-4 text-muted-foreground" /> Your phone number</h3>

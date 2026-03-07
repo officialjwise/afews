@@ -41,7 +41,7 @@ type Step = "verify" | "otp" | "manage";
 export default function ManageSubscription() {
   const [step, setStep] = useState<Step>("verify");
   const [phone, setPhone] = useState("");
-  const [channel, setChannel] = useState<"sms" | "whatsapp">("sms");
+  const [channels, setChannels] = useState<Set<"sms" | "whatsapp">>(new Set(["sms"]));
   const [otpCode, setOtpCode] = useState("");
   const [phoneToken, setPhoneToken] = useState<string | null>(null);
   const [subscribedAreas, setSubscribedAreas] = useState<string[]>(["a1", "a2", "a3"]);
@@ -52,6 +52,9 @@ export default function ManageSubscription() {
 
   const handleSendOtp = async () => {
     setError(null);
+    if (channels.size === 0) {
+      setError("Please select at least one alert channel."); return;
+    }
     if (!phone.trim() || !phone.startsWith("+")) {
       setError("Please enter your phone number in international format.");
       return;
@@ -131,16 +134,19 @@ export default function ManageSubscription() {
         {step === "verify" && (
           <div className="space-y-5">
             <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">Select one or both channels. If choosing WhatsApp, ensure your number is registered with WhatsApp.</p>
               <div className="flex gap-3">
                 {([
                   { value: "sms" as const, label: "SMS", icon: Phone },
                   { value: "whatsapp" as const, label: "WhatsApp", icon: MessageCircle },
-                ]).map(({ value, label, icon: Icon }) => (
+                ]).map(({ value, label, icon: Icon }) => {
+                  const selected = channels.has(value);
+                  return (
                   <button
                     key={value}
-                    onClick={() => setChannel(value)}
+                    onClick={() => setChannels(prev => { const next = new Set(prev); if (next.has(value)) next.delete(value); else next.add(value); return next; })}
                     className={`flex items-center gap-2 px-3 py-2 rounded-md border text-sm transition-colors ${
-                      channel === value
+                      selected
                         ? "bg-primary text-primary-foreground border-primary"
                         : "bg-card text-foreground border-border hover:bg-muted"
                     }`}
@@ -148,8 +154,15 @@ export default function ManageSubscription() {
                     <Icon className="h-3.5 w-3.5" />
                     {label}
                   </button>
-                ))}
+                  );
+                })}
               </div>
+              {channels.has("whatsapp") && (
+                <div className="flex items-start gap-2 rounded-md bg-accent/50 border border-accent px-3 py-2">
+                  <MessageCircle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <p className="text-xs text-muted-foreground">Make sure your phone number is registered with WhatsApp to receive alerts.</p>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Input
