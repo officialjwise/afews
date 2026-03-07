@@ -29,6 +29,11 @@ const App = () => (
           <Routes>
             {/* Public routes */}
             <Route path="/subscribe" element={<PublicSubscribe />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* Authenticated app shell */}
             <Route element={<AppLayout />}>
