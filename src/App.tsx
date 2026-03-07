@@ -44,7 +44,9 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
 
               {/* All authenticated roles */}
-              <Route path="/areas" element={<PlaceholderPage title="Areas & Tiles" description="Manage neighbourhood polygons and modelling grid cells" />} />
+              <Route path="/areas" element={<AreasPage />} />
+              <Route path="/areas/:id" element={<AreaDetailPage />} />
+              <Route path="/tiles" element={<TilesPage />} />
               <Route path="/risk" element={<PlaceholderPage title="Risk Analysis" description="Baseline flood risk computation and tile-level assessment" />} />
               <Route path="/alerts" element={<PlaceholderPage title="Alerts" description="Draft, review, approve, and dispatch flood alerts" />} />
 
