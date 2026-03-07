@@ -88,13 +88,6 @@ const App = () => (
                   <PlaceholderPage title="Settings" description="System configuration and platform preferences" />
                 </ProtectedRoute>
               } />
-
-              {/* Coordinator only */}
-              <Route path="/reports" element={
-                <ProtectedRoute allowedRoles={["coordinator"]}>
-                  <PlaceholderPage title="Field Reports" description="Submit observations and post-event confirmations" />
-                </ProtectedRoute>
-              } />
             </Route>
 
             <Route path="*" element={<NotFound />} />
