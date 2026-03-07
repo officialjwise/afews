@@ -8,7 +8,6 @@ import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { RoleRedirect } from "@/components/RoleRedirect";
 
-// Public pages
 import PublicSubscribe from "./pages/PublicSubscribe";
 import ManageSubscription from "./pages/ManageSubscription";
 import Login from "./pages/auth/Login";
@@ -18,7 +17,6 @@ import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import NotFound from "./pages/NotFound";
 
-// Shared pages
 import Dashboard from "./pages/Dashboard";
 import AreasPage from "./pages/AreasPage";
 import AreaDetailPage from "./pages/AreaDetailPage";
@@ -28,10 +26,8 @@ import AlertsPage from "./pages/AlertsPage";
 import ReportsPage from "./pages/ReportsPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
-import PlaceholderPage from "./pages/PlaceholderPage";
 import IngestionPage from "./pages/IngestionPage";
 
-// Admin pages
 import DeliveriesPage from "./pages/DeliveriesPage";
 import JobsPage from "./pages/JobsPage";
 import SubscriptionsPage from "./pages/SubscriptionsPage";
@@ -40,9 +36,9 @@ import RolesPage from "./pages/RolesPage";
 import AuditPage from "./pages/AuditPage";
 import HealthPage from "./pages/HealthPage";
 
-// Role-specific dashboards
 import CoordinatorDashboard from "./pages/coordinator/CoordinatorDashboard";
 import StakeholderDashboard from "./pages/stakeholder/StakeholderDashboard";
+import StakeholderHotspotsPage from "./pages/stakeholder/StakeholderHotspotsPage";
 import FloodEventPage from "./pages/coordinator/FloodEventPage";
 
 const queryClient = new QueryClient();
@@ -55,7 +51,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            {/* ─── Public routes (no auth) ─── */}
+            {/* Public routes */}
             <Route path="/subscribe" element={<PublicSubscribe />} />
             <Route path="/public/alerts/subscribe" element={<PublicSubscribe />} />
             <Route path="/public/alerts/verify" element={<PublicSubscribe />} />
@@ -67,12 +63,11 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
 
-            {/* ─── Authenticated app shell ─── */}
+            {/* Authenticated app shell */}
             <Route element={<AppLayout />}>
-              {/* Root redirect → role-specific dashboard */}
               <Route path="/" element={<RoleRedirect />} />
 
-              {/* ─── Admin routes ─── */}
+              {/* Admin */}
               <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><Dashboard /></ProtectedRoute>} />
               <Route path="/admin/areas" element={<ProtectedRoute allowedRoles={["admin"]}><AreasPage /></ProtectedRoute>} />
               <Route path="/admin/areas/import" element={<ProtectedRoute allowedRoles={["admin"]}><AreasPage /></ProtectedRoute>} />
@@ -97,19 +92,20 @@ const App = () => (
               <Route path="/admin/health" element={<ProtectedRoute allowedRoles={["admin"]}><HealthPage /></ProtectedRoute>} />
               <Route path="/admin/profile" element={<ProtectedRoute allowedRoles={["admin"]}><ProfilePage /></ProtectedRoute>} />
 
-              {/* ─── Stakeholder routes ─── */}
+              {/* Stakeholder */}
               <Route path="/stakeholder" element={<ProtectedRoute allowedRoles={["stakeholder"]}><StakeholderDashboard /></ProtectedRoute>} />
               <Route path="/stakeholder/risk" element={<ProtectedRoute allowedRoles={["stakeholder"]}><RiskPage /></ProtectedRoute>} />
-              <Route path="/stakeholder/hotspots" element={<ProtectedRoute allowedRoles={["stakeholder"]}><RiskPage /></ProtectedRoute>} />
+              <Route path="/stakeholder/hotspots" element={<ProtectedRoute allowedRoles={["stakeholder"]}><StakeholderHotspotsPage /></ProtectedRoute>} />
               <Route path="/stakeholder/alerts" element={<ProtectedRoute allowedRoles={["stakeholder"]}><AlertsPage /></ProtectedRoute>} />
               <Route path="/stakeholder/alerts/:id" element={<ProtectedRoute allowedRoles={["stakeholder"]}><AlertsPage /></ProtectedRoute>} />
               <Route path="/stakeholder/deliveries" element={<ProtectedRoute allowedRoles={["stakeholder"]}><DeliveriesPage /></ProtectedRoute>} />
               <Route path="/stakeholder/reports" element={<ProtectedRoute allowedRoles={["stakeholder"]}><ReportsPage /></ProtectedRoute>} />
               <Route path="/stakeholder/profile" element={<ProtectedRoute allowedRoles={["stakeholder"]}><ProfilePage /></ProtectedRoute>} />
 
-              {/* ─── Coordinator routes ─── */}
+              {/* Coordinator */}
               <Route path="/coordinator" element={<ProtectedRoute allowedRoles={["coordinator"]}><CoordinatorDashboard /></ProtectedRoute>} />
               <Route path="/coordinator/areas" element={<ProtectedRoute allowedRoles={["coordinator"]}><AreasPage /></ProtectedRoute>} />
+              <Route path="/coordinator/areas/:id" element={<ProtectedRoute allowedRoles={["coordinator"]}><AreaDetailPage /></ProtectedRoute>} />
               <Route path="/coordinator/alerts" element={<ProtectedRoute allowedRoles={["coordinator"]}><AlertsPage /></ProtectedRoute>} />
               <Route path="/coordinator/alerts/new" element={<ProtectedRoute allowedRoles={["coordinator"]}><AlertsPage /></ProtectedRoute>} />
               <Route path="/coordinator/alerts/:id" element={<ProtectedRoute allowedRoles={["coordinator"]}><AlertsPage /></ProtectedRoute>} />
@@ -119,7 +115,7 @@ const App = () => (
               <Route path="/coordinator/risk" element={<ProtectedRoute allowedRoles={["coordinator"]}><RiskPage /></ProtectedRoute>} />
               <Route path="/coordinator/profile" element={<ProtectedRoute allowedRoles={["coordinator"]}><ProfilePage /></ProtectedRoute>} />
 
-              {/* Legacy flat routes → redirect to role-prefixed */}
+              {/* Legacy redirects */}
               <Route path="/dashboard" element={<RoleRedirect />} />
               <Route path="/areas/*" element={<RoleRedirect fallback="/admin/areas" />} />
               <Route path="/tiles/*" element={<RoleRedirect fallback="/admin/tiles" />} />
