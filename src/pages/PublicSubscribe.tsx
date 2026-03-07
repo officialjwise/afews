@@ -159,7 +159,7 @@ export default function PublicSubscribe() {
         {step === "otp" && (
           <div className="space-y-5">
             <p className="text-sm text-muted-foreground rounded-md bg-muted px-3 py-2">
-              A 6-digit code has been sent to <span className="font-medium text-foreground">{phone}</span> via {channel === "sms" ? "SMS" : "WhatsApp"}.
+              A 6-digit code has been sent to <span className="font-medium text-foreground">{phone}</span> via {[...channels].map(c => c === "sms" ? "SMS" : "WhatsApp").join(" & ")}.
             </p>
             <div className="space-y-2">
               <h3 className="text-sm font-semibold">Enter verification code</h3>
@@ -218,7 +218,7 @@ export default function PublicSubscribe() {
             <div className="space-y-2">
               <h2 className="text-lg font-semibold">You're Subscribed!</h2>
               <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                You'll receive flood alerts via {channel === "sms" ? "SMS" : "WhatsApp"} at <span className="font-medium text-foreground">{phone}</span> when risk levels reach HIGH or SEVERE.
+                You'll receive flood alerts via {[...channels].map(c => c === "sms" ? "SMS" : "WhatsApp").join(" & ")} at <span className="font-medium text-foreground">{phone}</span> when risk levels reach HIGH or SEVERE.
               </p>
             </div>
             <div className="text-left max-w-sm mx-auto space-y-1.5">
