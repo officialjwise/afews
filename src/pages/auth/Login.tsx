@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { ArrowLeft, Loader2, ShieldCheck, Mail } from "lucide-react";
 type Step = "email" | "credentials";
 
 export default function Login() {
+  const navigate = useNavigate();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,7 +41,8 @@ export default function Login() {
     setIsLoading(true);
     try {
       await new Promise((r) => setTimeout(r, 1200));
-      // On success: store tokens and redirect
+      // On success: redirect to dashboard
+      navigate("/dashboard");
     } catch { setError("Invalid credentials or verification code."); }
     finally { setIsLoading(false); }
   }, [password, otpCode]);
