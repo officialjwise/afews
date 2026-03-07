@@ -1,56 +1,26 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  ClipboardList,
-  Plus,
-  MapPin,
-  Camera,
-  Loader2,
-  CheckCircle2,
-  Clock,
-  FileText,
-} from "lucide-react";
+import { toast } from "sonner";
+import { ClipboardList, Plus, MapPin, Camera, Loader2, CheckCircle2, Clock } from "lucide-react";
 
-/* ─── Types & mock data ─── */
 interface FieldReport {
-  id: string;
-  area: string;
-  type: "observation" | "confirmation" | "damage_assessment";
-  severity: string;
-  notes: string;
-  createdAt: string;
-  hasPhoto: boolean;
+  id: string; area: string; type: string; severity: string; notes: string; createdAt: string; hasPhoto: boolean;
 }
 
 const MOCK_REPORTS: FieldReport[] = [
-  { id: "fr1", area: "Makoko", type: "observation", severity: "high", notes: "Water level rising rapidly near the main access road. Approximately 30cm above normal.", createdAt: "45 min ago", hasPhoto: true },
-  { id: "fr2", area: "Ajegunle", type: "confirmation", severity: "severe", notes: "Flooding confirmed in Zone B. Several households evacuated. Emergency services notified.", createdAt: "2h ago", hasPhoto: true },
-  { id: "fr3", area: "Makoko", type: "damage_assessment", severity: "moderate", notes: "Post-flood damage assessment: 12 structures with minor water damage, roads passable.", createdAt: "1d ago", hasPhoto: false },
+  { id: "fr1", area: "Alajo", type: "observation", severity: "high", notes: "Water level rising rapidly near the Odaw River bridge. Approximately 30cm above normal.", createdAt: "45 min ago", hasPhoto: true },
+  { id: "fr2", area: "Nima", type: "confirmation", severity: "severe", notes: "Flooding confirmed in Zone B. Several households evacuated. NADMO notified.", createdAt: "2h ago", hasPhoto: true },
+  { id: "fr3", area: "Alajo", type: "damage_assessment", severity: "moderate", notes: "Post-flood assessment: 12 structures with minor water damage, roads passable.", createdAt: "1d ago", hasPhoto: false },
 ];
 
-const typeLabels: Record<string, string> = {
-  observation: "Observation",
-  confirmation: "Flood Confirmation",
-  damage_assessment: "Damage Assessment",
-};
-
-const severityVariant: Record<string, "critical" | "high" | "moderate" | "low"> = {
-  severe: "critical", high: "high", moderate: "moderate", low: "low",
-};
+const typeLabels: Record<string, string> = { observation: "Observation", confirmation: "Flood Confirmation", damage_assessment: "Damage Assessment" };
+const severityVariant: Record<string, "critical" | "high" | "moderate" | "low"> = { severe: "critical", high: "high", moderate: "moderate", low: "low" };
 
 export default function ReportsPage() {
   const { user } = useAuth();
@@ -63,32 +33,23 @@ export default function ReportsPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    // TODO: POST report
     await new Promise((r) => setTimeout(r, 1200));
     setIsSubmitting(false);
     setShowForm(false);
-    setArea("");
-    setReportType("");
-    setSeverity("");
-    setNotes("");
+    setArea(""); setReportType(""); setSeverity(""); setNotes("");
+    toast.success("Field report submitted successfully");
   };
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl">
+    <div className="p-6 space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Field Reports</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Submit observations, flood confirmations, and damage assessments
-          </p>
+          <p className="text-sm text-muted-foreground mt-0.5">Submit observations, flood confirmations, and damage assessments</p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="h-4 w-4" />
-          New Report
-        </Button>
+        <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> New Report</Button>
       </div>
 
-      {/* Reports list */}
       <div className="space-y-3">
         {MOCK_REPORTS.map((report) => (
           <div key={report.id} className="panel space-y-2">
@@ -103,12 +64,7 @@ export default function ReportsPage() {
                   <MapPin className="h-3 w-3" /> {report.area}
                   <span>·</span>
                   <Clock className="h-3 w-3" /> {report.createdAt}
-                  {report.hasPhoto && (
-                    <>
-                      <span>·</span>
-                      <Camera className="h-3 w-3" /> Photo attached
-                    </>
-                  )}
+                  {report.hasPhoto && (<><span>·</span><Camera className="h-3 w-3" /> Photo attached</>)}
                 </div>
               </div>
             </div>
@@ -117,7 +73,6 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      {/* ─── New Report Dialog ─── */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -130,7 +85,7 @@ export default function ReportsPage() {
               <Select value={area} onValueChange={setArea}>
                 <SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger>
                 <SelectContent>
-                  {(user?.assignedAreas || ["Makoko", "Ajegunle"]).map((a) => (
+                  {(user?.assignedAreas || ["Alajo", "Nima"]).map((a) => (
                     <SelectItem key={a} value={a.toLowerCase()}>{a}</SelectItem>
                   ))}
                 </SelectContent>
@@ -174,12 +129,7 @@ export default function ReportsPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={isSubmitting || !area || !reportType || !severity || !notes}>
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : (
-                <>
-                  <CheckCircle2 className="h-4 w-4" />
-                  Submit Report
-                </>
-              )}
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><CheckCircle2 className="h-4 w-4" /> Submit Report</>}
             </Button>
           </DialogFooter>
         </DialogContent>

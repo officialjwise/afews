@@ -1,46 +1,17 @@
 import {
-  LayoutDashboard,
-  Map,
-  Bell,
-  Users,
-  FileText,
-  Settings,
-  Shield,
-  Layers,
-  Activity,
-  ClipboardList,
-  ScrollText,
-  Grid3X3,
-  Send,
-  Briefcase,
-  UserCircle,
-  Zap,
-  BarChart3,
-  Heart,
-  AlertTriangle,
-  MapPin,
+  LayoutDashboard, Map, Bell, Users, FileText, Settings, Shield, Layers,
+  Activity, ScrollText, Grid3X3, Send, UserCircle, Zap, BarChart3, Heart,
+  AlertTriangle, MapPin, ClipboardList,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarHeader,
-  SidebarFooter,
-  useSidebar,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarFooter, useSidebar,
 } from "@/components/ui/sidebar";
 import { StatusIndicator } from "@/components/StatusIndicator";
 import { useAuth } from "@/contexts/AuthContext";
-import { type NavItem, ROLE_META, AppRole } from "@/lib/roles";
-import { cn } from "@/lib/utils";
-
-/* ─── Role-prefixed navigation ─── */
+import { type NavItem } from "@/lib/roles";
+import afewsLogo from "@/assets/afews-logo.png";
 
 const adminOpsNav: NavItem[] = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard, roles: ["admin"] },
@@ -90,7 +61,6 @@ const coordinatorNav: NavItem[] = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
   const { role } = useAuth();
 
   const renderNav = (items: NavItem[]) =>
@@ -114,11 +84,11 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b border-sidebar-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-sidebar-primary flex-shrink-0" />
+          <img src={afewsLogo} alt="A-FEWS" className="h-6 w-6 flex-shrink-0 object-contain" />
           {!collapsed && (
             <div className="flex flex-col">
               <span className="text-sm font-semibold text-sidebar-accent-foreground tracking-tight">A-FEWS</span>
-              <span className="text-[10px] text-sidebar-muted leading-tight">Flood Early Warning System</span>
+              <span className="text-[10px] text-sidebar-muted leading-tight">Flood Early Warning · Ghana</span>
             </div>
           )}
         </div>
@@ -129,40 +99,28 @@ export function AppSidebar() {
           <>
             <SidebarGroup>
               <SidebarGroupLabel className="text-sidebar-muted">Operations</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>{renderNav(adminOpsNav)}</SidebarMenu>
-              </SidebarGroupContent>
+              <SidebarGroupContent><SidebarMenu>{renderNav(adminOpsNav)}</SidebarMenu></SidebarGroupContent>
             </SidebarGroup>
             <SidebarGroup>
               <SidebarGroupLabel className="text-sidebar-muted">Management</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>{renderNav(adminMgmtNav)}</SidebarMenu>
-              </SidebarGroupContent>
+              <SidebarGroupContent><SidebarMenu>{renderNav(adminMgmtNav)}</SidebarMenu></SidebarGroupContent>
             </SidebarGroup>
             <SidebarGroup>
               <SidebarGroupLabel className="text-sidebar-muted">System</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>{renderNav(adminSysNav)}</SidebarMenu>
-              </SidebarGroupContent>
+              <SidebarGroupContent><SidebarMenu>{renderNav(adminSysNav)}</SidebarMenu></SidebarGroupContent>
             </SidebarGroup>
           </>
         )}
-
         {role === "stakeholder" && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-sidebar-muted">Navigation</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>{renderNav(stakeholderNav)}</SidebarMenu>
-            </SidebarGroupContent>
+            <SidebarGroupContent><SidebarMenu>{renderNav(stakeholderNav)}</SidebarMenu></SidebarGroupContent>
           </SidebarGroup>
         )}
-
         {role === "coordinator" && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-sidebar-muted">Navigation</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>{renderNav(coordinatorNav)}</SidebarMenu>
-            </SidebarGroupContent>
+            <SidebarGroupContent><SidebarMenu>{renderNav(coordinatorNav)}</SidebarMenu></SidebarGroupContent>
           </SidebarGroup>
         )}
       </SidebarContent>
@@ -172,7 +130,7 @@ export function AppSidebar() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <StatusIndicator status="active" label="System Online" className="text-sidebar-muted" />
-              <span className="text-[10px] text-sidebar-muted font-mono">v0.2.0</span>
+              <span className="text-[10px] text-sidebar-muted font-mono">v0.3.0</span>
             </div>
           </div>
         )}

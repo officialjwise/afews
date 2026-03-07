@@ -5,37 +5,34 @@ interface AuthContextValue {
   user: UserProfile | null;
   role: AppRole;
   isAuthenticated: boolean;
-  /** Check if current user has a specific permission */
   can: (permission: PermissionKey) => boolean;
-  /** Switch role (demo/dev mode — will be replaced by real auth) */
   switchRole: (role: AppRole) => void;
-  /** Simulate login (will be replaced by real auth) */
   login: (profile: UserProfile) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// Demo user profiles for development
+// Demo user profiles — Ghana-based
 const DEMO_USERS: Record<AppRole, UserProfile> = {
   admin: {
     id: "demo-admin",
     email: "admin@afews.org",
-    displayName: "Adaeze Okonkwo",
+    displayName: "Kwame Asante",
     role: "admin",
   },
   stakeholder: {
     id: "demo-stakeholder",
-    email: "stakeholder@nema.gov.ng",
-    displayName: "Dr. Ibrahim Musa",
+    email: "stakeholder@nadmo.gov.gh",
+    displayName: "Dr. Ama Mensah",
     role: "stakeholder",
   },
   coordinator: {
     id: "demo-coordinator",
     email: "coordinator@afews.org",
-    displayName: "Chidi Nwosu",
+    displayName: "Kofi Boateng",
     role: "coordinator",
-    assignedAreas: ["Makoko", "Ajegunle"],
+    assignedAreas: ["Alajo", "Nima"],
   },
 };
 
@@ -64,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         role: user.role,
-        isAuthenticated: true, // Always true in demo mode
+        isAuthenticated: true,
         can,
         switchRole,
         login,
