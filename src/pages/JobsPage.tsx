@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { StatusIndicator } from "@/components/StatusIndicator";
-import { useSimulatedLoading } from "@/hooks/useSimulatedLoading";
-import { ListSkeleton } from "@/components/shared/TableSkeleton";
 import { Play, Loader2, CheckCircle2, Clock, Database, Cloud, Layers, Activity } from "lucide-react";
 
 interface Job {
@@ -23,7 +21,6 @@ const JOBS: Job[] = [
 ];
 
 export default function JobsPage() {
-  const isLoading = useSimulatedLoading(1000);
   const [running, setRunning] = useState<string | null>(null);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
 
@@ -42,39 +39,37 @@ export default function JobsPage() {
         <p className="text-sm text-muted-foreground mt-0.5">Trigger data ingestion and risk computation pipelines</p>
       </div>
 
-      {isLoading ? <ListSkeleton count={5} /> : (
-        <div className="space-y-3">
-          {JOBS.map((job) => {
-            const Icon = job.icon;
-            const isRunning = running === job.id;
-            const isDone = completed.has(job.id);
-            return (
-              <div key={job.id} className="panel flex items-center justify-between gap-4">
-                <div className="flex items-start gap-3 flex-1">
-                  <div className="rounded-md bg-secondary p-2 mt-0.5">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium">{job.name}</p>
-                    <p className="text-xs text-muted-foreground">{job.description}</p>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> Last: {job.lastRun}
-                      </span>
-                      <StatusIndicator status={job.status} />
-                    </div>
+      <div className="space-y-3">
+        {JOBS.map((job) => {
+          const Icon = job.icon;
+          const isRunning = running === job.id;
+          const isDone = completed.has(job.id);
+          return (
+            <div key={job.id} className="panel flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3 flex-1">
+                <div className="rounded-md bg-secondary p-2 mt-0.5">
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">{job.name}</p>
+                  <p className="text-xs text-muted-foreground">{job.description}</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3 w-3" /> Last: {job.lastRun}
+                    </span>
+                    <StatusIndicator status={job.status} />
                   </div>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => triggerJob(job.id)} disabled={isRunning}>
-                  {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
-                   isDone ? <><CheckCircle2 className="h-3.5 w-3.5 text-status-active" /> Done</> :
-                   <><Play className="h-3.5 w-3.5" /> Run</>}
-                </Button>
               </div>
-            );
-          })}
-        </div>
-      )}
+              <Button size="sm" variant="outline" onClick={() => triggerJob(job.id)} disabled={isRunning}>
+                {isRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
+                 isDone ? <><CheckCircle2 className="h-3.5 w-3.5 text-status-active" /> Done</> :
+                 <><Play className="h-3.5 w-3.5" /> Run</>}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

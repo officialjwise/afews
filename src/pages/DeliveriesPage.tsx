@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Send, CheckCircle2, XCircle, Clock, MessageSquare, MapPin } from "lucide-react";
 import { DataTable, Column } from "@/components/shared/DataTable";
-import { useSimulatedLoading } from "@/hooks/useSimulatedLoading";
-import { TableSkeleton, MetricsSkeleton } from "@/components/shared/TableSkeleton";
 
 interface Delivery {
   id: string;
@@ -21,6 +19,14 @@ const MOCK: Delivery[] = [
   { id: "d2", alertTitle: "High risk — Ajegunle", area: "Ajegunle", channel: "WhatsApp", sent: 890, failed: 0, pending: 0, status: "complete", dispatchedAt: "2h ago" },
   { id: "d3", alertTitle: "Moderate advisory — Lekki", area: "Lekki Phase 1", channel: "SMS", sent: 1980, failed: 42, pending: 78, status: "in_progress", dispatchedAt: "1d ago" },
   { id: "d4", alertTitle: "Flash flood alert — VI", area: "Victoria Island", channel: "SMS", sent: 0, failed: 1560, pending: 0, status: "failed", dispatchedAt: "2d ago" },
+  { id: "d5", alertTitle: "Heavy rain warning — Osu", area: "Osu", channel: "WhatsApp", sent: 640, failed: 5, pending: 0, status: "complete", dispatchedAt: "3d ago" },
+  { id: "d6", alertTitle: "Flood watch — Kaneshie", area: "Kaneshie", channel: "SMS", sent: 720, failed: 8, pending: 12, status: "in_progress", dispatchedAt: "4d ago" },
+  { id: "d7", alertTitle: "Storm surge — Tema", area: "Tema", channel: "WhatsApp", sent: 1450, failed: 22, pending: 0, status: "complete", dispatchedAt: "5d ago" },
+  { id: "d8", alertTitle: "Rising waters — Odawna", area: "Odawna", channel: "SMS", sent: 980, failed: 0, pending: 20, status: "in_progress", dispatchedAt: "5d ago" },
+  { id: "d9", alertTitle: "Flash flood — Nima", area: "Nima", channel: "SMS", sent: 890, failed: 15, pending: 0, status: "complete", dispatchedAt: "6d ago" },
+  { id: "d10", alertTitle: "Drainage overflow — Adabraka", area: "Adabraka", channel: "WhatsApp", sent: 2100, failed: 30, pending: 0, status: "complete", dispatchedAt: "1w ago" },
+  { id: "d11", alertTitle: "River flood — Alajo", area: "Alajo", channel: "SMS", sent: 1240, failed: 18, pending: 0, status: "complete", dispatchedAt: "1w ago" },
+  { id: "d12", alertTitle: "Coastal flood — Labadi", area: "Labadi", channel: "WhatsApp", sent: 560, failed: 3, pending: 0, status: "complete", dispatchedAt: "2w ago" },
 ];
 
 const statusStyle: Record<string, string> = {
@@ -92,7 +98,6 @@ const columns: Column<Delivery>[] = [
 ];
 
 export default function DeliveriesPage() {
-  const isLoading = useSimulatedLoading(1000);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
 
@@ -109,78 +114,70 @@ export default function DeliveriesPage() {
         <p className="text-sm text-muted-foreground mt-0.5">Monitor alert dispatch status across all channels</p>
       </div>
 
-      {isLoading ? (
-        <>
-          <MetricsSkeleton count={4} />
-          <TableSkeleton rows={4} columns={6} />
-        </>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="panel space-y-1">
-              <p className="metric-label">Total Sent</p>
-              <p className="metric-value text-status-active">4,050</p>
-            </div>
-            <div className="panel space-y-1">
-              <p className="metric-label">Failed</p>
-              <p className="metric-value text-severity-critical">1,614</p>
-            </div>
-            <div className="panel space-y-1">
-              <p className="metric-label">Pending</p>
-              <p className="metric-value text-status-pending">126</p>
-            </div>
-            <div className="panel space-y-1">
-              <p className="metric-label">Success Rate</p>
-              <p className="metric-value">69.9%</p>
-            </div>
-          </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="panel space-y-1">
+          <p className="metric-label">Total Sent</p>
+          <p className="metric-value text-status-active">4,050</p>
+        </div>
+        <div className="panel space-y-1">
+          <p className="metric-label">Failed</p>
+          <p className="metric-value text-severity-critical">1,614</p>
+        </div>
+        <div className="panel space-y-1">
+          <p className="metric-label">Pending</p>
+          <p className="metric-value text-status-pending">126</p>
+        </div>
+        <div className="panel space-y-1">
+          <p className="metric-label">Success Rate</p>
+          <p className="metric-value">69.9%</p>
+        </div>
+      </div>
 
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Status:</span>
-              {STATUS_OPTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
-                    statusFilter === s
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card text-muted-foreground border-border hover:text-foreground"
-                  }`}
-                >
-                  {s === "all" ? "All" : s.replace("_", " ")}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Channel:</span>
-              {CHANNEL_OPTIONS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setChannelFilter(c)}
-                  className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
-                    channelFilter === c
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card text-muted-foreground border-border hover:text-foreground"
-                  }`}
-                >
-                  {c === "all" ? "All" : c}
-                </button>
-              ))}
-            </div>
-          </div>
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Status:</span>
+          {STATUS_OPTIONS.map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
+                statusFilter === s
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:text-foreground"
+              }`}
+            >
+              {s === "all" ? "All" : s.replace("_", " ")}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Channel:</span>
+          {CHANNEL_OPTIONS.map((c) => (
+            <button
+              key={c}
+              onClick={() => setChannelFilter(c)}
+              className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
+                channelFilter === c
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:text-foreground"
+              }`}
+            >
+              {c === "all" ? "All" : c}
+            </button>
+          ))}
+        </div>
+      </div>
 
-          <DataTable
-            data={filtered}
-            columns={columns}
-            rowKey={(r) => r.id}
-            searchable
-            searchKeys={["alertTitle", "area"] as any}
-            emptyIcon={<Send className="h-8 w-8 opacity-50" />}
-            emptyMessage="No deliveries found"
-          />
-        </>
-      )}
+      <DataTable
+        data={filtered}
+        columns={columns}
+        rowKey={(r) => r.id}
+        pageSize={5}
+        searchable
+        searchKeys={["alertTitle", "area"] as any}
+        emptyIcon={<Send className="h-8 w-8 opacity-50" />}
+        emptyMessage="No deliveries found"
+      />
     </div>
   );
 }

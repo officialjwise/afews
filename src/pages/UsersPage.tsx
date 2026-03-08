@@ -4,8 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, Column } from "@/components/shared/DataTable";
 import { Users, Shield, Mail, MoreVertical, Plus, Edit, Trash2, MapPin } from "lucide-react";
 import { AppRole, ROLE_META } from "@/lib/roles";
-import { useSimulatedLoading } from "@/hooks/useSimulatedLoading";
-import { TableSkeleton } from "@/components/shared/TableSkeleton";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -33,13 +31,19 @@ const MOCK_USERS: User[] = [
   { id: "u3", name: "Chidi Nwosu", email: "coordinator@afews.org", role: "coordinator", assignedAreas: ["Makoko", "Ajegunle"], lastActive: "30 min ago", status: "active" },
   { id: "u4", name: "Amina Bello", email: "amina@afews.org", role: "coordinator", assignedAreas: ["Lekki Phase 1"], lastActive: "3d ago", status: "inactive" },
   { id: "u5", name: "Emeka Obi", email: "emeka@nema.gov.ng", role: "stakeholder", lastActive: "5h ago", status: "active" },
+  { id: "u6", name: "Kofi Boateng", email: "kofi@afews.org", role: "coordinator", assignedAreas: ["Alajo", "Nima"], lastActive: "15 min ago", status: "active" },
+  { id: "u7", name: "Fatima Yusuf", email: "fatima@nema.gov.ng", role: "stakeholder", lastActive: "2d ago", status: "active" },
+  { id: "u8", name: "Kwame Asante", email: "kwame@afews.org", role: "admin", lastActive: "1h ago", status: "active" },
+  { id: "u9", name: "Ngozi Eze", email: "ngozi@afews.org", role: "coordinator", assignedAreas: ["Osu", "Adabraka"], lastActive: "4h ago", status: "active" },
+  { id: "u10", name: "Yaw Mensah", email: "yaw@afews.org", role: "coordinator", assignedAreas: ["Kaneshie"], lastActive: "1w ago", status: "inactive" },
+  { id: "u11", name: "Grace Owusu", email: "grace@nema.gov.ng", role: "stakeholder", lastActive: "6h ago", status: "active" },
+  { id: "u12", name: "Samuel Ofori", email: "samuel@afews.org", role: "admin", lastActive: "3h ago", status: "active" },
 ];
 
 const ROLE_OPTIONS = ["all", "admin", "coordinator", "stakeholder"] as const;
 const STATUS_OPTIONS = ["all", "active", "inactive"] as const;
 
 export default function UsersPage() {
-  const isLoading = useSimulatedLoading(1000);
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [newUser, setNewUser] = useState<{ name: string; email: string; role: AppRole }>({ name: "", email: "", role: "stakeholder" });
@@ -153,44 +157,41 @@ export default function UsersPage() {
         </Button>
       </div>
 
-      {isLoading ? <TableSkeleton rows={5} columns={5} /> : (
-        <>
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Role:</span>
-              {ROLE_OPTIONS.map((r) => (
-                <button key={r} onClick={() => setRoleFilter(r)}
-                  className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
-                    roleFilter === r ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:text-foreground"
-                  }`}>
-                  {r === "all" ? "All" : r.charAt(0).toUpperCase() + r.slice(1)}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Status:</span>
-              {STATUS_OPTIONS.map((s) => (
-                <button key={s} onClick={() => setStatusFilter(s)}
-                  className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
-                    statusFilter === s ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:text-foreground"
-                  }`}>
-                  {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Role:</span>
+          {ROLE_OPTIONS.map((r) => (
+            <button key={r} onClick={() => setRoleFilter(r)}
+              className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
+                roleFilter === r ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:text-foreground"
+              }`}>
+              {r === "all" ? "All" : r.charAt(0).toUpperCase() + r.slice(1)}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Status:</span>
+          {STATUS_OPTIONS.map((s) => (
+            <button key={s} onClick={() => setStatusFilter(s)}
+              className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
+                statusFilter === s ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:text-foreground"
+              }`}>
+              {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
 
-          <DataTable
-            data={filteredUsers}
-            columns={columns}
-            rowKey={(r) => r.id}
-            searchable
-            searchKeys={["name", "email"] as any}
-            emptyIcon={<Users className="h-8 w-8 opacity-50" />}
-            emptyMessage="No users found"
-          />
-        </>
-      )}
+      <DataTable
+        data={filteredUsers}
+        columns={columns}
+        rowKey={(r) => r.id}
+        pageSize={5}
+        searchable
+        searchKeys={["name", "email"] as any}
+        emptyIcon={<Users className="h-8 w-8 opacity-50" />}
+        emptyMessage="No users found"
+      />
 
       {/* Invite User Dialog */}
       <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>

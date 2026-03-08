@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { ScrollText, User, Clock } from "lucide-react";
 import { DataTable, Column } from "@/components/shared/DataTable";
-import { useSimulatedLoading } from "@/hooks/useSimulatedLoading";
-import { TableSkeleton } from "@/components/shared/TableSkeleton";
 
 interface AuditEntry {
   id: string;
@@ -23,6 +21,14 @@ const MOCK: AuditEntry[] = [
   { id: "au6", action: "Alert rejected", actor: "Dr. Ibrahim Musa", role: "stakeholder", target: "Flash flood alert — VI", timestamp: "2d ago", category: "alert" },
   { id: "au7", action: "Subscription created", actor: "Public", role: "public", target: "+234 801***4567 → Makoko, Ajegunle", timestamp: "5h ago", category: "subscription" },
   { id: "au8", action: "Ingestion triggered", actor: "Adaeze Okonkwo", role: "admin", target: "Open-Meteo pipeline", timestamp: "42 min ago", category: "system" },
+  { id: "au9", action: "Alert drafted", actor: "Kofi Boateng", role: "coordinator", target: "Flash flood — Alajo", timestamp: "3h ago", category: "alert" },
+  { id: "au10", action: "Area boundary updated", actor: "Adaeze Okonkwo", role: "admin", target: "Nima polygon revised", timestamp: "4h ago", category: "area" },
+  { id: "au11", action: "User invited", actor: "Adaeze Okonkwo", role: "admin", target: "emeka@nema.gov.ng", timestamp: "5h ago", category: "user" },
+  { id: "au12", action: "Subscription cancelled", actor: "Public", role: "public", target: "+234 701***6789 → Surulere", timestamp: "6h ago", category: "subscription" },
+  { id: "au13", action: "Risk threshold updated", actor: "Adaeze Okonkwo", role: "admin", target: "Severe min → 0.80", timestamp: "8h ago", category: "system" },
+  { id: "au14", action: "Alert sent", actor: "System", role: "system", target: "Moderate advisory — Adabraka (2,100 recipients)", timestamp: "1d ago", category: "alert" },
+  { id: "au15", action: "DEM data ingested", actor: "System", role: "system", target: "Copernicus DEM — 50 tiles updated", timestamp: "2d ago", category: "system" },
+  { id: "au16", action: "User deactivated", actor: "Adaeze Okonkwo", role: "admin", target: "Amina Bello", timestamp: "3d ago", category: "user" },
 ];
 
 const catColor: Record<string, string> = {
@@ -78,7 +84,6 @@ const columns: Column<AuditEntry>[] = [
 ];
 
 export default function AuditPage() {
-  const isLoading = useSimulatedLoading(1000);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   const filtered = categoryFilter === "all" ? MOCK : MOCK.filter((e) => e.category === categoryFilter);
@@ -90,35 +95,32 @@ export default function AuditPage() {
         <p className="text-sm text-muted-foreground mt-0.5">System activity and change history</p>
       </div>
 
-      {isLoading ? <TableSkeleton rows={6} columns={5} /> : (
-        <>
-          <div className="flex items-center gap-2">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
-                  categoryFilter === cat
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-card text-muted-foreground border-border hover:text-foreground"
-                }`}
-              >
-                {cat === "all" ? "All" : cat.charAt(0).toUpperCase() + cat.slice(1)}
-              </button>
-            ))}
-          </div>
+      <div className="flex items-center gap-2">
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setCategoryFilter(cat)}
+            className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
+              categoryFilter === cat
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card text-muted-foreground border-border hover:text-foreground"
+            }`}
+          >
+            {cat === "all" ? "All" : cat.charAt(0).toUpperCase() + cat.slice(1)}
+          </button>
+        ))}
+      </div>
 
-          <DataTable
-            data={filtered}
-            columns={columns}
-            rowKey={(r) => r.id}
-            searchable
-            searchKeys={["action", "actor", "target"] as any}
-            emptyIcon={<ScrollText className="h-8 w-8 opacity-50" />}
-            emptyMessage="No audit entries found"
-          />
-        </>
-      )}
+      <DataTable
+        data={filtered}
+        columns={columns}
+        rowKey={(r) => r.id}
+        pageSize={8}
+        searchable
+        searchKeys={["action", "actor", "target"] as any}
+        emptyIcon={<ScrollText className="h-8 w-8 opacity-50" />}
+        emptyMessage="No audit entries found"
+      />
     </div>
   );
 }
