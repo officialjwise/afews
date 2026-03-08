@@ -49,6 +49,7 @@ export default function Login() {
     e?.preventDefault();
     setError(null);
     if (!password) { setError("Please enter your password."); return; }
+    if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     if (otpCode.length < 6) { setError("Please enter the 6-digit code sent to your phone."); return; }
     setIsLoading(true);
     try {

@@ -352,17 +352,17 @@ export const authApi = {
     request<APIEnvelope<null>>("/auth/logout", { method: "POST" }),
 
   forgotPassword: (email: string) =>
-    request<APIEnvelope<unknown>>("/auth/forgot-password", {
+    request<APIEnvelope<unknown>>("/auth/password/forgot", {
       method: "POST",
       auth: false,
       body: { email },
     }),
 
   resetPassword: (token: string, password: string) =>
-    request<APIEnvelope<unknown>>("/auth/reset-password", {
+    request<APIEnvelope<unknown>>("/auth/password/reset", {
       method: "POST",
       auth: false,
-      body: { token, password },
+      body: { token, new_password: password },
     }),
 
   changePassword: (current_password: string, new_password: string) =>
