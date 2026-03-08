@@ -24,12 +24,18 @@ function deriveCategory(resourceType?: string | null): string {
 }
 
 function adaptAudit(r: ApiAuditEntry): AuditEntry {
+  // Prefer the enriched resource_name if available, otherwise fall back to resource_type only
+  const targetLabel = r.resource_name
+    ? `${r.resource_type}: ${r.resource_name}`
+    : r.resource_type
+      ? r.resource_type
+      : "—";
   return {
     id: r.id,
     action: r.action,
     actor: r.user_name ?? "System",
     role: r.user_role?.toLowerCase() ?? "system",
-    target: [r.resource_type, r.resource_id].filter(Boolean).join(": ") || "—",
+    target: targetLabel,
     timestamp: new Date(r.created_at).toLocaleString(),
     category: deriveCategory(r.resource_type),
   };

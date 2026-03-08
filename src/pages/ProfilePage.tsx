@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,15 @@ export default function ProfilePage() {
   const [newPassword, setNewPassword] = useState("");
   const [profileSaving, setProfileSaving] = useState(false);
   const [pwSaving, setPwSaving] = useState(false);
+
+  // Load real full_name from /me — the JWT only contains email
+  useEffect(() => {
+    authApi.me()
+      .then((res) => {
+        if (res.data?.full_name) setFullName(res.data.full_name);
+      })
+      .catch(() => {/* silently fall back to JWT email */});
+  }, []);
 
   const handleSaveProfile = async () => {
     if (!fullName.trim() || fullName.trim().length < 2) {

@@ -46,6 +46,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [newUser, setNewUser] = useState<{ name: string; email: string; role: AppRole }>({ name: "", email: "", role: "stakeholder" });
+  const [inviteLoading, setInviteLoading] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editSaving, setEditSaving] = useState(false);
@@ -63,9 +64,27 @@ export default function UsersPage() {
     return () => { cancelled = true; };
   }, []);
 
-  const handleInvite = () => {
-    toast.info("User registration must be performed via the /register endpoint. Provide the staff member with credentials.");
-    setIsInviteOpen(false);
+  const handleInvite = async () => {
+    if (!newUser.email.trim() || !newUser.name.trim()) {
+      toast.error("Name and email are required.");
+      return;
+    }
+    setInviteLoading(true);
+    try {
+      const res = await userApi.invite({
+        email: newUser.email.trim(),
+        full_name: newUser.name.trim(),
+        role: newUser.role.toUpperCase(),
+      });
+      setUsers((prev) => [adaptUser(res.data), ...prev]);
+      toast.success(`Invitation sent to ${newUser.email}`);
+      setIsInviteOpen(false);
+      setNewUser({ name: "", email: "", role: "stakeholder" });
+    } catch (err) {
+      toast.error((err as Error).message ?? "Failed to send invitation.");
+    } finally {
+      setInviteLoading(false);
+    }
   };
 
   const handleEditRole = (user: User) => { setEditingUser(user); setIsEditOpen(true); };
@@ -219,8 +238,11 @@ export default function UsersPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsInviteOpen(false)}>Cancel</Button>
-            <Button onClick={handleInvite}>Send Invitation</Button>
+            <Button variant="outline" onClick={() => setIsInviteOpen(false)} disabled={inviteLoading}>Cancel</Button>
+            <Button onClick={handleInvite} disabled={inviteLoading}>
+              {inviteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Send Invitation
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
