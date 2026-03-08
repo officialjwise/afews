@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { Users, MapPin, Phone, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, Column } from "@/components/shared/DataTable";
+import { useSimulatedLoading } from "@/hooks/useSimulatedLoading";
+import { TableSkeleton, MetricsSkeleton } from "@/components/shared/TableSkeleton";
 
 interface Subscription {
   id: string;
@@ -18,6 +21,9 @@ const MOCK: Subscription[] = [
   { id: "s4", phone: "+234 701 ***6789", channel: "WhatsApp", areas: ["Surulere"], subscribedAt: "2w ago", status: "inactive" },
   { id: "s5", phone: "+234 805 ***0123", channel: "SMS", areas: ["Ajegunle", "Makoko"], subscribedAt: "3d ago", status: "active" },
 ];
+
+const STATUS_OPTIONS = ["all", "active", "inactive"] as const;
+const CHANNEL_OPTIONS = ["all", "SMS", "WhatsApp"] as const;
 
 const columns: Column<Subscription>[] = [
   {
@@ -65,6 +71,16 @@ const columns: Column<Subscription>[] = [
 ];
 
 export default function SubscriptionsPage() {
+  const isLoading = useSimulatedLoading(1000);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [channelFilter, setChannelFilter] = useState<string>("all");
+
+  const filtered = MOCK.filter((s) => {
+    if (statusFilter !== "all" && s.status !== statusFilter) return false;
+    if (channelFilter !== "all" && s.channel !== channelFilter) return false;
+    return true;
+  });
+
   return (
     <div className="p-6 space-y-6 max-w-7xl">
       <div>
@@ -72,34 +88,78 @@ export default function SubscriptionsPage() {
         <p className="text-sm text-muted-foreground mt-0.5">Overview of all public alert subscriptions</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="panel space-y-1">
-          <p className="metric-label">Total Active</p>
-          <p className="metric-value">8,420</p>
-        </div>
-        <div className="panel space-y-1">
-          <p className="metric-label">SMS</p>
-          <p className="metric-value">5,240</p>
-        </div>
-        <div className="panel space-y-1">
-          <p className="metric-label">WhatsApp</p>
-          <p className="metric-value">3,180</p>
-        </div>
-        <div className="panel space-y-1">
-          <p className="metric-label">Inactive</p>
-          <p className="metric-value text-muted-foreground">342</p>
-        </div>
-      </div>
+      {isLoading ? (
+        <>
+          <MetricsSkeleton count={4} />
+          <TableSkeleton rows={5} columns={5} />
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="panel space-y-1">
+              <p className="metric-label">Total Active</p>
+              <p className="metric-value">8,420</p>
+            </div>
+            <div className="panel space-y-1">
+              <p className="metric-label">SMS</p>
+              <p className="metric-value">5,240</p>
+            </div>
+            <div className="panel space-y-1">
+              <p className="metric-label">WhatsApp</p>
+              <p className="metric-value">3,180</p>
+            </div>
+            <div className="panel space-y-1">
+              <p className="metric-label">Inactive</p>
+              <p className="metric-value text-muted-foreground">342</p>
+            </div>
+          </div>
 
-      <DataTable
-        data={MOCK}
-        columns={columns}
-        rowKey={(r) => r.id}
-        searchable
-        searchKeys={["phone"] as any}
-        emptyIcon={<Users className="h-8 w-8 opacity-50" />}
-        emptyMessage="No subscriptions found"
-      />
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Status:</span>
+              {STATUS_OPTIONS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
+                    statusFilter === s
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card text-muted-foreground border-border hover:text-foreground"
+                  }`}
+                >
+                  {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Channel:</span>
+              {CHANNEL_OPTIONS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setChannelFilter(c)}
+                  className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
+                    channelFilter === c
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card text-muted-foreground border-border hover:text-foreground"
+                  }`}
+                >
+                  {c === "all" ? "All" : c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <DataTable
+            data={filtered}
+            columns={columns}
+            rowKey={(r) => r.id}
+            searchable
+            searchKeys={["phone"] as any}
+            emptyIcon={<Users className="h-8 w-8 opacity-50" />}
+            emptyMessage="No subscriptions found"
+          />
+        </>
+      )}
     </div>
   );
 }
