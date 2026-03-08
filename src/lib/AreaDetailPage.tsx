@@ -8,9 +8,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
-import { MapPin, Grid3X3, Users, Activity, ArrowLeft, Pencil, Loader2 } from "lucide-react";
+import { Grid3X3, Users, Activity, ArrowLeft, Pencil, Loader2 } from "lucide-react";
 import { areaApi, riskApi, type AreaRecord, type AreaRiskItem } from "@/lib/api";
 import { toast } from "sonner";
+import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 
 const sourceBadge: Record<string, { label: string; className: string }> = {
   nominatim: { label: "Nominatim", className: "bg-severity-info/15 text-severity-info border-severity-info/30" },
@@ -168,11 +170,31 @@ export default function AreaDetailPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-4">
-          <div className="rounded-md border border-border bg-muted/50 h-64 flex items-center justify-center">
-            <div className="text-center text-muted-foreground text-sm">
-              <MapPin className="h-8 w-8 mx-auto mb-2" />
-              Area polygon map preview
-            </div>
+          <div className="rounded-md border border-border overflow-hidden" style={{ height: 256 }}>
+            <MapContainer
+              center={[
+                area.centroid_lat ?? 5.6037,
+                area.centroid_lon ?? -0.1870,
+              ]}
+              zoom={13}
+              style={{ height: "100%", width: "100%" }}
+              scrollWheelZoom={false}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              />
+              {area.boundary && (
+                <GeoJSON
+                  data={{
+                    type: "Feature",
+                    properties: { name: area.name },
+                    geometry: area.boundary as GeoJSON.Geometry,
+                  }}
+                  style={{ color: "#3b82f6", weight: 2, fillColor: "#3b82f6", fillOpacity: 0.15 }}
+                />
+              )}
+            </MapContainer>
           </div>
           <div className="panel space-y-3">
             <h2 className="section-header">Source & Provenance</h2>

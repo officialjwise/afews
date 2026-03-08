@@ -8,6 +8,9 @@ import {
 import { Activity, MapPin, X, Clock, Brain } from "lucide-react";
 import { toast } from "sonner";
 import { riskApi, areaApi, type AreaRiskItem, type AreaRecord } from "@/lib/api";
+import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import type { Layer, StyleFunction } from "leaflet";
 
 type RiskLevel = "low" | "moderate" | "high" | "severe";
 
@@ -83,10 +86,32 @@ function adaptRow(item: AreaRiskItem, areaMap: Record<string, AreaRecord>): Risk
   };
 }
 
+// ── Risk colour palette for map features ─────────────────────────────────────
+const RISK_FILL: Record<RiskLevel, string> = {
+  severe: "#ef4444",
+  high: "#f97316",
+  moderate: "#eab308",
+  low: "#22c55e",
+};
+
+/** Control to fly the map to bounds when the selected area changes */
+function FlyToArea({ areas, selectedId }: { areas: AreaRecord[]; selectedId: string | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!selectedId) return;
+    const area = areas.find((a) => a.id === selectedId);
+    if (area?.centroid_lat && area?.centroid_lon) {
+      map.flyTo([area.centroid_lat, area.centroid_lon], 13, { duration: 0.8 });
+    }
+  }, [selectedId, areas, map]);
+  return null;
+}
+
 export default function RiskPage() {
   const [horizon, setHorizon] = useState<string>("all");
   const [cityFilter, setCityFilter] = useState("all");
   const [rows, setRows] = useState<RiskRow[]>([]);
+  const [allAreas, setAllAreas] = useState<AreaRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<RiskRow | null>(null);
   const [lastComputed, setLastComputed] = useState<string>("—");
@@ -103,6 +128,7 @@ export default function RiskPage() {
         if (cancelled) return;
         const areaMap: Record<string, AreaRecord> = {};
         (areasRes.data?.items ?? []).forEach((a: AreaRecord) => { areaMap[a.id] = a; });
+        setAllAreas(areasRes.data?.items ?? []);
         const items: AreaRiskItem[] = riskRes.data?.items ?? [];
         setRows(items.map((item) => adaptRow(item, areaMap)));
         const latest = items.map((i) => i.run_at).filter(Boolean).sort().at(-1);
@@ -126,6 +152,41 @@ export default function RiskPage() {
   const severeCt = filtered.filter((r) => r.riskLevel === "severe").length;
   const highCt = filtered.filter((r) => r.riskLevel === "high").length;
   const cities = [...new Set(rows.map((r) => r.city.toLowerCase()).filter((c) => c && c !== "—"))];
+
+  // Build risk level lookup by area_id for the map
+  const riskByAreaId: Record<string, RiskLevel> = {};
+  filtered.forEach((r) => { riskByAreaId[r.id] = r.riskLevel; });
+
+  // GeoJSON features for areas that have boundaries
+  const geoJsonFeatures = allAreas
+    .filter((a) => a.boundary)
+    .map((a) => ({
+      type: "Feature" as const,
+      properties: { id: a.id, name: a.name, riskLevel: riskByAreaId[a.id] ?? "low" },
+      geometry: a.boundary as GeoJSON.Geometry,
+    }));
+
+  const mapGeoJson: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: geoJsonFeatures };
+
+  const geoJsonStyle: StyleFunction = (feature) => {
+    const rl = (feature?.properties?.riskLevel ?? "low") as RiskLevel;
+    return {
+      fillColor: RISK_FILL[rl] ?? RISK_FILL.low,
+      weight: selected?.id === feature?.properties?.id ? 3 : 1.5,
+      color: selected?.id === feature?.properties?.id ? "#fff" : "#fff",
+      fillOpacity: selected?.id === feature?.properties?.id ? 0.75 : 0.45,
+    };
+  };
+
+  const onEachFeature = (feature: GeoJSON.Feature, layer: Layer) => {
+    const id = feature.properties?.id;
+    const name = feature.properties?.name;
+    layer.bindTooltip(name, { sticky: true });
+    layer.on("click", () => {
+      const row = filtered.find((r) => r.id === id);
+      if (row) setSelected(row);
+    });
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -191,45 +252,28 @@ export default function RiskPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          {/* Map placeholder */}
-          <div className="rounded-md border border-border bg-muted/30 relative overflow-hidden" style={{ height: 320 }}>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative w-full h-full p-6">
-                {filtered.slice(0, 5).map((area, i) => {
-                  const positions = [
-                    { top: "10%", left: "15%", w: "25%", h: "30%" },
-                    { top: "20%", left: "45%", w: "22%", h: "28%" },
-                    { top: "55%", left: "10%", w: "28%", h: "25%" },
-                    { top: "50%", left: "50%", w: "24%", h: "30%" },
-                    { top: "5%", left: "72%", w: "20%", h: "22%" },
-                  ];
-                  const pos = positions[i];
-                  return (
-                    <button
-                      key={area.id}
-                      onClick={() => setSelected(area)}
-                      className={`absolute rounded-sm border-2 transition-all hover:opacity-90 ${
-                        selected?.id === area.id ? "ring-2 ring-ring" : ""
-                      }`}
-                      style={{
-                        top: pos.top, left: pos.left, width: pos.w, height: pos.h,
-                        backgroundColor: `hsl(var(--severity-${area.riskLevel === "severe" ? "critical" : area.riskLevel}) / 0.3)`,
-                        borderColor: `hsl(var(--severity-${area.riskLevel === "severe" ? "critical" : area.riskLevel}) / 0.6)`,
-                      }}
-                      title={area.name}
-                    >
-                      <span className="text-[10px] font-medium text-foreground px-1 truncate block">{area.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="absolute bottom-3 left-3 flex items-center gap-3 bg-card/90 backdrop-blur-sm rounded-sm px-2.5 py-1.5 border border-border text-[10px]">
-              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-severity-critical" /> Severe</span>
-              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-severity-high" /> High</span>
-              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-severity-moderate" /> Moderate</span>
-              <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-severity-low" /> Low</span>
-            </div>
+          {/* OSM Leaflet map */}
+          <div className="rounded-md border border-border overflow-hidden" style={{ height: 320 }}>
+            <MapContainer
+              center={[5.6037, -0.1870]}
+              zoom={11}
+              style={{ height: "100%", width: "100%" }}
+              scrollWheelZoom={false}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              />
+              {geoJsonFeatures.length > 0 && (
+                <GeoJSON
+                  key={JSON.stringify(riskByAreaId) + selected?.id}
+                  data={mapGeoJson}
+                  style={geoJsonStyle}
+                  onEachFeature={onEachFeature}
+                />
+              )}
+              <FlyToArea areas={allAreas} selectedId={selected?.id ?? null} />
+            </MapContainer>
           </div>
 
           <div className="panel p-0 overflow-hidden">
