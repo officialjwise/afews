@@ -45,15 +45,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = tokenStore.getAccess();
     if (token) {
-      const profile = profileFromToken(token);
-      // Check token expiry
       const claims = decodeJwtPayload(token);
       const exp = claims?.exp as number | undefined;
       if (exp && exp * 1000 > Date.now()) {
-        setUser(profile);
-      } else {
-        tokenStore.clear();
+        // Token still valid — restore immediately
+        setUser(profileFromToken(token));
+        setIsLoading(false);
+        return;
       }
+      // Token expired — attempt silent refresh before giving up
+      const refreshToken = tokenStore.getRefresh();
+      if (refreshToken) {
+        authApi.refreshToken(refreshToken)
+          .then((res) => {
+            tokenStore.set(res.data.access_token, res.data.refresh_token);
+            setUser(profileFromToken(res.data.access_token));
+          })
+          .catch(() => {
+            tokenStore.clear();
+          })
+          .finally(() => setIsLoading(false));
+        return;
+      }
+      tokenStore.clear();
     }
     setIsLoading(false);
   }, []);
