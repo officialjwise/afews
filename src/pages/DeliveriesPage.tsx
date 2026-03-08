@@ -1,6 +1,8 @@
-import { Construction, Send, Truck, CheckCircle2, XCircle, Clock, MessageSquare, MapPin } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import { Send, CheckCircle2, XCircle, Clock, MessageSquare, MapPin } from "lucide-react";
 import { DataTable, Column } from "@/components/shared/DataTable";
+import { useSimulatedLoading } from "@/hooks/useSimulatedLoading";
+import { TableSkeleton, MetricsSkeleton } from "@/components/shared/TableSkeleton";
 
 interface Delivery {
   id: string;
@@ -26,6 +28,9 @@ const statusStyle: Record<string, string> = {
   in_progress: "bg-status-pending/15 text-status-pending",
   failed: "bg-severity-critical/15 text-severity-critical",
 };
+
+const STATUS_OPTIONS = ["all", "complete", "in_progress", "failed"] as const;
+const CHANNEL_OPTIONS = ["all", "SMS", "WhatsApp"] as const;
 
 const columns: Column<Delivery>[] = [
   {
@@ -87,6 +92,16 @@ const columns: Column<Delivery>[] = [
 ];
 
 export default function DeliveriesPage() {
+  const isLoading = useSimulatedLoading(1000);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [channelFilter, setChannelFilter] = useState<string>("all");
+
+  const filtered = MOCK.filter((d) => {
+    if (statusFilter !== "all" && d.status !== statusFilter) return false;
+    if (channelFilter !== "all" && d.channel !== channelFilter) return false;
+    return true;
+  });
+
   return (
     <div className="p-6 space-y-6 max-w-7xl">
       <div>
@@ -94,34 +109,78 @@ export default function DeliveriesPage() {
         <p className="text-sm text-muted-foreground mt-0.5">Monitor alert dispatch status across all channels</p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="panel space-y-1">
-          <p className="metric-label">Total Sent</p>
-          <p className="metric-value text-status-active">4,050</p>
-        </div>
-        <div className="panel space-y-1">
-          <p className="metric-label">Failed</p>
-          <p className="metric-value text-severity-critical">1,614</p>
-        </div>
-        <div className="panel space-y-1">
-          <p className="metric-label">Pending</p>
-          <p className="metric-value text-status-pending">126</p>
-        </div>
-        <div className="panel space-y-1">
-          <p className="metric-label">Success Rate</p>
-          <p className="metric-value">69.9%</p>
-        </div>
-      </div>
+      {isLoading ? (
+        <>
+          <MetricsSkeleton count={4} />
+          <TableSkeleton rows={4} columns={6} />
+        </>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="panel space-y-1">
+              <p className="metric-label">Total Sent</p>
+              <p className="metric-value text-status-active">4,050</p>
+            </div>
+            <div className="panel space-y-1">
+              <p className="metric-label">Failed</p>
+              <p className="metric-value text-severity-critical">1,614</p>
+            </div>
+            <div className="panel space-y-1">
+              <p className="metric-label">Pending</p>
+              <p className="metric-value text-status-pending">126</p>
+            </div>
+            <div className="panel space-y-1">
+              <p className="metric-label">Success Rate</p>
+              <p className="metric-value">69.9%</p>
+            </div>
+          </div>
 
-      <DataTable
-        data={MOCK}
-        columns={columns}
-        rowKey={(r) => r.id}
-        searchable
-        searchKeys={["alertTitle", "area"] as any}
-        emptyIcon={<Send className="h-8 w-8 opacity-50" />}
-        emptyMessage="No deliveries found"
-      />
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Status:</span>
+              {STATUS_OPTIONS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setStatusFilter(s)}
+                  className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
+                    statusFilter === s
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card text-muted-foreground border-border hover:text-foreground"
+                  }`}
+                >
+                  {s === "all" ? "All" : s.replace("_", " ")}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Channel:</span>
+              {CHANNEL_OPTIONS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setChannelFilter(c)}
+                  className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
+                    channelFilter === c
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card text-muted-foreground border-border hover:text-foreground"
+                  }`}
+                >
+                  {c === "all" ? "All" : c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <DataTable
+            data={filtered}
+            columns={columns}
+            rowKey={(r) => r.id}
+            searchable
+            searchKeys={["alertTitle", "area"] as any}
+            emptyIcon={<Send className="h-8 w-8 opacity-50" />}
+            emptyMessage="No deliveries found"
+          />
+        </>
+      )}
     </div>
   );
 }

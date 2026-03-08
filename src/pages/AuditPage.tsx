@@ -1,6 +1,8 @@
-import { ScrollText, User, Clock, ArrowRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react";
+import { ScrollText, User, Clock } from "lucide-react";
 import { DataTable, Column } from "@/components/shared/DataTable";
+import { useSimulatedLoading } from "@/hooks/useSimulatedLoading";
+import { TableSkeleton } from "@/components/shared/TableSkeleton";
 
 interface AuditEntry {
   id: string;
@@ -30,6 +32,8 @@ const catColor: Record<string, string> = {
   system: "bg-muted text-muted-foreground",
   subscription: "bg-status-active/15 text-status-active",
 };
+
+const CATEGORIES = ["all", "alert", "area", "user", "system", "subscription"] as const;
 
 const columns: Column<AuditEntry>[] = [
   {
@@ -74,6 +78,11 @@ const columns: Column<AuditEntry>[] = [
 ];
 
 export default function AuditPage() {
+  const isLoading = useSimulatedLoading(1000);
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
+  const filtered = categoryFilter === "all" ? MOCK : MOCK.filter((e) => e.category === categoryFilter);
+
   return (
     <div className="p-6 space-y-6 max-w-7xl">
       <div>
@@ -81,15 +90,35 @@ export default function AuditPage() {
         <p className="text-sm text-muted-foreground mt-0.5">System activity and change history</p>
       </div>
 
-      <DataTable
-        data={MOCK}
-        columns={columns}
-        rowKey={(r) => r.id}
-        searchable
-        searchKeys={["action", "actor", "target"] as any}
-        emptyIcon={<ScrollText className="h-8 w-8 opacity-50" />}
-        emptyMessage="No audit entries found"
-      />
+      {isLoading ? <TableSkeleton rows={6} columns={5} /> : (
+        <>
+          <div className="flex items-center gap-2">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`rounded-sm px-2.5 py-1 text-xs font-medium transition-colors border ${
+                  categoryFilter === cat
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card text-muted-foreground border-border hover:text-foreground"
+                }`}
+              >
+                {cat === "all" ? "All" : cat.charAt(0).toUpperCase() + cat.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          <DataTable
+            data={filtered}
+            columns={columns}
+            rowKey={(r) => r.id}
+            searchable
+            searchKeys={["action", "actor", "target"] as any}
+            emptyIcon={<ScrollText className="h-8 w-8 opacity-50" />}
+            emptyMessage="No audit entries found"
+          />
+        </>
+      )}
     </div>
   );
 }
