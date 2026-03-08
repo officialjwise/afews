@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Map, Bell, Users, FileText, Settings, Shield, Layers,
   Activity, ScrollText, Grid3X3, Send, UserCircle, Zap, BarChart3, Heart,
-  AlertTriangle, MapPin, ClipboardList,
+  AlertTriangle, MapPin, ClipboardList, LogOut,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -11,6 +11,8 @@ import {
 import { StatusIndicator } from "@/components/StatusIndicator";
 import { useAuth } from "@/contexts/AuthContext";
 import { type NavItem } from "@/lib/roles";
+import { authApi, tokenStore } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
 import afewsLogo from "@/assets/afews-logo.png";
 
 const adminOpsNav: NavItem[] = [
@@ -62,6 +64,13 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { role } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try { await authApi.logout(); } catch { /* ignore */ }
+    tokenStore.clear();
+    navigate("/");
+  };
 
   const renderNav = (items: NavItem[]) =>
     items.map((item) => (
@@ -134,6 +143,13 @@ export function AppSidebar() {
             </div>
           </div>
         )}
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+        >
+          <LogOut className="h-4 w-4 flex-shrink-0" />
+          {!collapsed && <span>Log out</span>}
+        </button>
       </SidebarFooter>
     </Sidebar>
   );

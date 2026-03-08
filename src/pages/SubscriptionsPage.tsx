@@ -1,31 +1,29 @@
-import { useState } from "react";
-import { Users, MapPin, Phone, MessageCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Users, MapPin, Phone, MessageCircle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, Column } from "@/components/shared/DataTable";
+import { subscriptionAdminApi, adminApi, type AdminSubItem, type SubscriptionStats } from "@/lib/api";
+import { toast } from "sonner";
 
 interface Subscription {
   id: string;
   phone: string;
-  channel: "SMS" | "WhatsApp";
+  channel: string;
   areas: string[];
   subscribedAt: string;
   status: "active" | "inactive";
 }
 
-const MOCK: Subscription[] = [
-  { id: "s1", phone: "+234 801 ***4567", channel: "SMS", areas: ["Makoko", "Ajegunle"], subscribedAt: "2d ago", status: "active" },
-  { id: "s2", phone: "+234 902 ***8901", channel: "WhatsApp", areas: ["Lekki Phase 1"], subscribedAt: "5d ago", status: "active" },
-  { id: "s3", phone: "+234 803 ***2345", channel: "SMS", areas: ["Makoko", "Victoria Island", "Ikoyi"], subscribedAt: "1w ago", status: "active" },
-  { id: "s4", phone: "+234 701 ***6789", channel: "WhatsApp", areas: ["Surulere"], subscribedAt: "2w ago", status: "inactive" },
-  { id: "s5", phone: "+234 805 ***0123", channel: "SMS", areas: ["Ajegunle", "Makoko"], subscribedAt: "3d ago", status: "active" },
-  { id: "s6", phone: "+233 20 ***1234", channel: "SMS", areas: ["Alajo", "Nima"], subscribedAt: "1d ago", status: "active" },
-  { id: "s7", phone: "+233 24 ***5678", channel: "WhatsApp", areas: ["Osu"], subscribedAt: "4d ago", status: "active" },
-  { id: "s8", phone: "+233 27 ***9012", channel: "SMS", areas: ["Adabraka", "Kaneshie"], subscribedAt: "6d ago", status: "active" },
-  { id: "s9", phone: "+233 50 ***3456", channel: "WhatsApp", areas: ["Odawna"], subscribedAt: "1w ago", status: "inactive" },
-  { id: "s10", phone: "+233 54 ***7890", channel: "SMS", areas: ["East Legon"], subscribedAt: "2w ago", status: "active" },
-  { id: "s11", phone: "+233 26 ***2345", channel: "WhatsApp", areas: ["Tema", "Ashaiman"], subscribedAt: "3w ago", status: "active" },
-  { id: "s12", phone: "+234 809 ***6789", channel: "SMS", areas: ["Makoko"], subscribedAt: "1m ago", status: "inactive" },
-];
+function adaptSub(r: AdminSubItem): Subscription {
+  return {
+    id: r.id,
+    phone: r.phone,
+    channel: r.channel.toUpperCase() === "WHATSAPP" ? "WhatsApp" : r.channel.toUpperCase(),
+    areas: r.areas.map((a) => a.name),
+    subscribedAt: new Date(r.opt_in_at).toLocaleDateString(),
+    status: r.is_active ? "active" : "inactive",
+  };
+}
 
 const STATUS_OPTIONS = ["all", "active", "inactive"] as const;
 const CHANNEL_OPTIONS = ["all", "SMS", "WhatsApp"] as const;
@@ -76,10 +74,30 @@ const columns: Column<Subscription>[] = [
 ];
 
 export default function SubscriptionsPage() {
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [stats, setStats] = useState<SubscriptionStats | null>(null);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
 
-  const filtered = MOCK.filter((s) => {
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      subscriptionAdminApi.list(),
+      adminApi.subscriptionStats(),
+    ])
+      .then(([subsRes, statsRes]) => {
+        if (!cancelled) {
+          setSubscriptions((subsRes.data?.items ?? []).map(adaptSub));
+          setStats(statsRes.data);
+        }
+      })
+      .catch(() => toast.error("Failed to load subscription data."))
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const filtered = subscriptions.filter((s) => {
     if (statusFilter !== "all" && s.status !== statusFilter) return false;
     if (channelFilter !== "all" && s.channel !== channelFilter) return false;
     return true;
@@ -95,19 +113,19 @@ export default function SubscriptionsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="panel space-y-1">
           <p className="metric-label">Total Active</p>
-          <p className="metric-value">8,420</p>
+          <p className="metric-value">{stats?.active_subscriptions?.toLocaleString() ?? "—"}</p>
         </div>
         <div className="panel space-y-1">
-          <p className="metric-label">SMS</p>
-          <p className="metric-value">5,240</p>
+          <p className="metric-label">Sent</p>
+          <p className="metric-value">{stats?.delivery_sent?.toLocaleString() ?? "—"}</p>
         </div>
         <div className="panel space-y-1">
-          <p className="metric-label">WhatsApp</p>
-          <p className="metric-value">3,180</p>
+          <p className="metric-label">Failed</p>
+          <p className="metric-value text-severity-critical">{stats?.delivery_failed?.toLocaleString() ?? "—"}</p>
         </div>
         <div className="panel space-y-1">
-          <p className="metric-label">Inactive</p>
-          <p className="metric-value text-muted-foreground">342</p>
+          <p className="metric-label">Pending</p>
+          <p className="metric-value text-muted-foreground">{stats?.delivery_pending?.toLocaleString() ?? "—"}</p>
         </div>
       </div>
 
@@ -153,8 +171,8 @@ export default function SubscriptionsPage() {
         pageSize={5}
         searchable
         searchKeys={["phone"] as any}
-        emptyIcon={<Users className="h-8 w-8 opacity-50" />}
-        emptyMessage="No subscriptions found"
+        emptyIcon={loading ? <Loader2 className="h-8 w-8 opacity-50 animate-spin" /> : <Users className="h-8 w-8 opacity-50" />}
+        emptyMessage={loading ? "Loading subscriptions..." : "No subscriptions found"}
       />
     </div>
   );

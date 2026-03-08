@@ -200,6 +200,7 @@ export interface AlertRecord {
   title: string;
   message: string;
   created_by: string;
+  created_by_name?: string | null;
   approved_by?: string | null;
   rejected_by?: string | null;
   rejection_reason?: string | null;
@@ -207,6 +208,64 @@ export interface AlertRecord {
   sent_at?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Staff user record returned by GET /users. */
+export interface UserRecord {
+  id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+  last_login_at?: string | null;
+}
+
+/** Per-alert-channel delivery aggregate returned by GET /deliveries. */
+export interface DeliveryRow {
+  id: string;
+  alert_id: string;
+  alert_title: string;
+  area_name?: string | null;
+  channel: string;
+  sent: number;
+  failed: number;
+  pending: number;
+  status: "complete" | "in_progress" | "failed";
+  dispatched_at?: string | null;
+}
+
+/** Audit log entry returned by GET /audit. */
+export interface AuditEntry {
+  id: string;
+  action: string;
+  user_id?: string | null;
+  user_name?: string | null;
+  user_role?: string | null;
+  resource_type?: string | null;
+  resource_id?: string | null;
+  details_json?: unknown;
+  created_at: string;
+}
+
+/** Admin subscription item returned by GET /subscriptions/admin/list. */
+export interface AdminSubItem {
+  id: string;
+  phone: string;
+  channel: string;
+  is_active: boolean;
+  areas: { area_id: string; name: string }[];
+  opt_in_at: string;
+  created_at: string;
+}
+
+/** Candidate area returned by POST /areas/import/search. */
+export interface AreaImportCandidate {
+  external_id: string;
+  source: string;
+  display_name: string;
+  bounding_box?: [number, number, number, number] | null;
+  geometry?: Record<string, unknown> | null;
 }
 
 export interface AreaRisk {
@@ -294,7 +353,7 @@ export const authApi = {
     }),
 
   changePassword: (current_password: string, new_password: string) =>
-    request<APIEnvelope<unknown>>("/auth/change-password", {
+    request<APIEnvelope<unknown>>("/auth/password/change", {
       method: "POST",
       body: { current_password, new_password },
     }),
@@ -375,6 +434,27 @@ export const areaApi = {
     request<APIEnvelope<AreaRecord>>("/areas", { method: "POST", body: data }),
   update: (id: string, data: unknown) =>
     request<APIEnvelope<AreaRecord>>(`/areas/${id}`, { method: "PATCH", body: data }),
+  generateTiles: (id: string) =>
+    request<APIEnvelope<unknown>>(`/areas/${id}/tiles/generate`, { method: "POST" }),
+  importSearch: (data: { name: string; city?: string; source_preference?: string }) =>
+    request<APIEnvelope<AreaImportCandidate[]>>("/areas/import/search", { method: "POST", body: data }),
+  importConfirm: (data: {
+    name: string;
+    city?: string;
+    country?: string;
+    source: string;
+    external_id: string;
+    geometry: Record<string, unknown>;
+    source_query?: string;
+  }) =>
+    request<APIEnvelope<AreaRecord>>("/areas/import/confirm", { method: "POST", body: data }),
+  importGeojson: (data: {
+    name: string;
+    city?: string;
+    country?: string;
+    geometry: Record<string, unknown>;
+  }) =>
+    request<APIEnvelope<AreaRecord>>("/areas/import/geojson", { method: "POST", body: data }),
 };
 
 // Risk
@@ -414,9 +494,9 @@ export const alertApi = {
 // Deliveries
 export const deliveryApi = {
   list: (params?: Record<string, string>) =>
-    request<APIEnvelope<unknown[]>>("/deliveries", { params }),
+    request<APIEnvelope<{ items: DeliveryRow[]; total: number }>>("/deliveries", { params }),
   getByAlert: (alertId: string) =>
-    request<APIEnvelope<unknown[]>>(`/deliveries/alert/${alertId}`),
+    request<APIEnvelope<DeliveryRow[]>>(`/deliveries/alert/${alertId}`),
 };
 
 // Reports
@@ -429,8 +509,9 @@ export const reportApi = {
 
 // Users
 export const userApi = {
-  list: () => request<APIEnvelope<unknown[]>>("/users"),
-  get: (id: string) => request<APIEnvelope<unknown>>(`/users/${id}`),
+  list: (params?: Record<string, string>) =>
+    request<APIEnvelope<{ items: UserRecord[]; total: number }>>("/users", { params }),
+  get: (id: string) => request<APIEnvelope<UserRecord>>(`/users/${id}`),
   updateRole: (id: string, role: string) =>
     request<APIEnvelope<void>>(`/users/${id}/role`, { method: "PUT", body: { role } }),
 };
@@ -444,7 +525,13 @@ export const healthApi = {
 // Audit
 export const auditApi = {
   list: (params?: Record<string, string>) =>
-    request<APIEnvelope<unknown[]>>("/audit", { params }),
+    request<APIEnvelope<{ items: AuditEntry[]; total: number }>>("/audit", { params }),
+};
+
+// Admin subscriptions
+export const subscriptionAdminApi = {
+  list: (params?: Record<string, string>) =>
+    request<APIEnvelope<{ items: AdminSubItem[]; total: number }>>("/subscriptions/admin/list", { params }),
 };
 
 // Jobs
@@ -473,8 +560,8 @@ export const jobApi = {
 // Settings / Profile
 export const settingsApi = {
   getProfile: () => request<APIEnvelope<unknown>>("/auth/me"),
-  updateProfile: (data: unknown) =>
-    request<APIEnvelope<unknown>>("/profile", { method: "PUT", body: data }),
+  updateProfile: (data: { full_name: string }) =>
+    request<APIEnvelope<unknown>>("/auth/me", { method: "PATCH", body: data }),
 };
 
 // Ingestion

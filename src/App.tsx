@@ -19,7 +19,7 @@ import NotFound from "./pages/NotFound";
 
 import Dashboard from "./pages/Dashboard";
 import AreasPage from "./pages/AreasPage";
-import AreaDetailPage from "./pages/AreaDetailPage";
+import AreaDetailPage from "./lib/AreaDetailPage";
 import TilesPage from "./pages/TilesPage";
 import RiskPage from "./pages/RiskPage";
 import AlertsPage from "./pages/AlertsPage";

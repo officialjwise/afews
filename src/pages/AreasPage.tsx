@@ -62,6 +62,10 @@ export default function AreasPage() {
     return () => { cancelled = true; };
   }, []);
 
+  const refreshAreas = () => {
+    areaApi.list().then((res) => setAreas(res.data?.items ?? [])).catch(() => {});
+  };
+
   const filtered = areas.filter(
     (a) =>
       a.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -104,10 +108,10 @@ export default function AreasPage() {
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="import" className="mt-4">
-                  <AreaImportWizard onComplete={() => { setImportOpen(false); toast.success("Area imported successfully"); }} />
+                  <AreaImportWizard onComplete={() => { setImportOpen(false); refreshAreas(); toast.success("Area imported successfully"); }} />
                 </TabsContent>
                 <TabsContent value="geojson" className="mt-4">
-                  <GeoJsonUpload onComplete={() => { setImportOpen(false); toast.success("GeoJSON uploaded successfully"); }} />
+                  <GeoJsonUpload onComplete={() => { setImportOpen(false); refreshAreas(); toast.success("GeoJSON uploaded successfully"); }} />
                 </TabsContent>
               </Tabs>
             </DialogContent>

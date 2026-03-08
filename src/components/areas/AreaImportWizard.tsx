@@ -4,24 +4,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Search, MapPin, CheckCircle2 } from "lucide-react";
+import { areaApi } from "@/lib/api";
+import { toast } from "sonner";
 
 interface Props {
   onComplete: () => void;
 }
 
 interface SearchResult {
-  id: string;
+  id: string; // external_id from backend
   displayName: string;
-  source: "nominatim" | "overpass";
+  source: string;
   bbox: [number, number, number, number];
   confidence?: number;
+  geometry?: Record<string, unknown> | null;
 }
-
-const MOCK_RESULTS: SearchResult[] = [
-  { id: "r1", displayName: "Makoko, Lagos, Nigeria", source: "nominatim", bbox: [3.38, 6.49, 3.40, 6.50], confidence: 0.95 },
-  { id: "r2", displayName: "Makoko (waterfront settlement), Lagos", source: "overpass", bbox: [3.385, 6.492, 3.395, 6.498], confidence: 0.82 },
-  { id: "r3", displayName: "Makoko / Iwaya, Yaba LCDA, Lagos", source: "nominatim", bbox: [3.37, 6.48, 3.41, 6.51] },
-];
 
 type Step = "search" | "confirm";
 
@@ -45,10 +42,26 @@ export function AreaImportWizard({ onComplete }: Props) {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSearching(true);
-    // TODO: call backend search
-    await new Promise((r) => setTimeout(r, 1000));
-    setResults(MOCK_RESULTS);
-    setIsSearching(false);
+    try {
+      const res = await areaApi.importSearch({
+        name: query,
+        city: city || undefined,
+        source_preference: sourcePreference !== "any" ? sourcePreference : undefined,
+      });
+      const mapped: SearchResult[] = (res.data ?? []).map((c) => ({
+        id: c.external_id,
+        displayName: c.display_name,
+        source: c.source,
+        bbox: c.bounding_box ?? [0, 0, 0, 0],
+        geometry: c.geometry,
+      }));
+      setResults(mapped);
+      if (mapped.length === 0) toast.info("No results found. Try a different query.");
+    } catch (err) {
+      toast.error((err as Error).message ?? "Search failed.");
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const handleSelect = (result: SearchResult) => {
@@ -62,11 +75,25 @@ export function AreaImportWizard({ onComplete }: Props) {
   };
 
   const handleSave = async () => {
+    if (!selected) return;
     setIsSaving(true);
-    // TODO: POST area to backend
-    await new Promise((r) => setTimeout(r, 1200));
-    setIsSaving(false);
-    onComplete();
+    try {
+      await areaApi.importConfirm({
+        name: editName,
+        city: editCity || undefined,
+        country: editCountry || undefined,
+        source: selected.source,
+        external_id: selected.id,
+        geometry: selected.geometry ?? {},
+        source_query: query,
+      });
+      toast.success("Area imported successfully.");
+      onComplete();
+    } catch (err) {
+      toast.error((err as Error).message ?? "Failed to save area.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (step === "confirm" && selected) {

@@ -46,7 +46,7 @@ function adaptAlert(r: AlertRecord, areaMap: Record<string, string>): FloodAlert
     horizon: `${r.horizon_h}h`,
     status: statusMap[r.status] ?? "draft",
     message: r.message,
-    createdBy: r.created_by.slice(0, 8),
+    createdBy: r.created_by_name ?? r.created_by.slice(0, 8),
     createdAt: new Date(r.created_at).toLocaleString(),
     rejectionReason: r.rejection_reason ?? undefined,
   };
@@ -148,6 +148,10 @@ export default function AlertsPage() {
   };
 
   const handleDraftSave = async () => {
+    if (!draftHorizon) { toast.error("Please select a forecast horizon."); return; }
+    if (!draftLevel) { toast.error("Please select a risk level."); return; }
+    if (draftTitle.trim().length < 3) { toast.error("Title must be at least 3 characters."); return; }
+    if (draftMessage.trim().length < 10) { toast.error("Message must be at least 10 characters."); return; }
     const horizonMap: Record<string, number> = { "6h": 6, "24h": 24, "72h": 72 };
     const levelApiMap: Record<string, string> = { low: "LOW", moderate: "MODERATE", high: "HIGH", severe: "SEVERE" };
     setActionLoading(true);
@@ -352,7 +356,7 @@ export default function AlertsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDraftForm(false)}>Cancel</Button>
-            <Button disabled={!draftHorizon || !draftLevel || !draftTitle || !draftMessage || actionLoading} onClick={handleDraftSave}>
+            <Button disabled={!draftHorizon || !draftLevel || draftTitle.trim().length < 3 || draftMessage.trim().length < 10 || actionLoading} onClick={handleDraftSave}>
               {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Draft"}
             </Button>
           </DialogFooter>

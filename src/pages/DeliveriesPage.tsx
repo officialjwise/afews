@@ -1,12 +1,14 @@
-import { useState } from "react";
-import { Send, CheckCircle2, XCircle, Clock, MessageSquare, MapPin } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Send, CheckCircle2, XCircle, Clock, MessageSquare, MapPin, Loader2 } from "lucide-react";
 import { DataTable, Column } from "@/components/shared/DataTable";
+import { deliveryApi, type DeliveryRow } from "@/lib/api";
+import { toast } from "sonner";
 
 interface Delivery {
   id: string;
   alertTitle: string;
   area: string;
-  channel: "SMS" | "WhatsApp";
+  channel: string;
   sent: number;
   failed: number;
   pending: number;
@@ -14,20 +16,19 @@ interface Delivery {
   dispatchedAt: string;
 }
 
-const MOCK: Delivery[] = [
-  { id: "d1", alertTitle: "Severe flooding — Makoko", area: "Makoko", channel: "SMS", sent: 1180, failed: 12, pending: 48, status: "in_progress", dispatchedAt: "12 min ago" },
-  { id: "d2", alertTitle: "High risk — Ajegunle", area: "Ajegunle", channel: "WhatsApp", sent: 890, failed: 0, pending: 0, status: "complete", dispatchedAt: "2h ago" },
-  { id: "d3", alertTitle: "Moderate advisory — Lekki", area: "Lekki Phase 1", channel: "SMS", sent: 1980, failed: 42, pending: 78, status: "in_progress", dispatchedAt: "1d ago" },
-  { id: "d4", alertTitle: "Flash flood alert — VI", area: "Victoria Island", channel: "SMS", sent: 0, failed: 1560, pending: 0, status: "failed", dispatchedAt: "2d ago" },
-  { id: "d5", alertTitle: "Heavy rain warning — Osu", area: "Osu", channel: "WhatsApp", sent: 640, failed: 5, pending: 0, status: "complete", dispatchedAt: "3d ago" },
-  { id: "d6", alertTitle: "Flood watch — Kaneshie", area: "Kaneshie", channel: "SMS", sent: 720, failed: 8, pending: 12, status: "in_progress", dispatchedAt: "4d ago" },
-  { id: "d7", alertTitle: "Storm surge — Tema", area: "Tema", channel: "WhatsApp", sent: 1450, failed: 22, pending: 0, status: "complete", dispatchedAt: "5d ago" },
-  { id: "d8", alertTitle: "Rising waters — Odawna", area: "Odawna", channel: "SMS", sent: 980, failed: 0, pending: 20, status: "in_progress", dispatchedAt: "5d ago" },
-  { id: "d9", alertTitle: "Flash flood — Nima", area: "Nima", channel: "SMS", sent: 890, failed: 15, pending: 0, status: "complete", dispatchedAt: "6d ago" },
-  { id: "d10", alertTitle: "Drainage overflow — Adabraka", area: "Adabraka", channel: "WhatsApp", sent: 2100, failed: 30, pending: 0, status: "complete", dispatchedAt: "1w ago" },
-  { id: "d11", alertTitle: "River flood — Alajo", area: "Alajo", channel: "SMS", sent: 1240, failed: 18, pending: 0, status: "complete", dispatchedAt: "1w ago" },
-  { id: "d12", alertTitle: "Coastal flood — Labadi", area: "Labadi", channel: "WhatsApp", sent: 560, failed: 3, pending: 0, status: "complete", dispatchedAt: "2w ago" },
-];
+function adaptDelivery(r: DeliveryRow): Delivery {
+  return {
+    id: r.id,
+    alertTitle: r.alert_title,
+    area: r.area_name ?? "—",
+    channel: r.channel.toUpperCase() === "WHATSAPP" ? "WhatsApp" : r.channel.toUpperCase(),
+    sent: r.sent,
+    failed: r.failed,
+    pending: r.pending,
+    status: r.status,
+    dispatchedAt: r.dispatched_at ? new Date(r.dispatched_at).toLocaleString() : "—",
+  };
+}
 
 const statusStyle: Record<string, string> = {
   complete: "bg-status-active/15 text-status-active",
@@ -98,17 +99,30 @@ const columns: Column<Delivery>[] = [
 ];
 
 export default function DeliveriesPage() {
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
 
-  const totalSent = MOCK.reduce((s, d) => s + d.sent, 0);
-  const totalFailed = MOCK.reduce((s, d) => s + d.failed, 0);
-  const totalPending = MOCK.reduce((s, d) => s + d.pending, 0);
+  useEffect(() => {
+    let cancelled = false;
+    deliveryApi.list()
+      .then((res) => {
+        if (!cancelled) setDeliveries((res.data?.items ?? []).map(adaptDelivery));
+      })
+      .catch(() => toast.error("Failed to load delivery data."))
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const totalSent = deliveries.reduce((s, d) => s + d.sent, 0);
+  const totalFailed = deliveries.reduce((s, d) => s + d.failed, 0);
+  const totalPending = deliveries.reduce((s, d) => s + d.pending, 0);
   const successRate = totalSent + totalFailed > 0
     ? ((totalSent / (totalSent + totalFailed)) * 100).toFixed(1)
     : "—";
 
-  const filtered = MOCK.filter((d) => {
+  const filtered = deliveries.filter((d) => {
     if (statusFilter !== "all" && d.status !== statusFilter) return false;
     if (channelFilter !== "all" && d.channel !== channelFilter) return false;
     return true;
@@ -182,8 +196,8 @@ export default function DeliveriesPage() {
         pageSize={5}
         searchable
         searchKeys={["alertTitle", "area"] as any}
-        emptyIcon={<Send className="h-8 w-8 opacity-50" />}
-        emptyMessage="No deliveries found"
+        emptyIcon={loading ? <Loader2 className="h-8 w-8 opacity-50 animate-spin" /> : <Send className="h-8 w-8 opacity-50" />}
+        emptyMessage={loading ? "Loading deliveries..." : "No deliveries found"}
       />
     </div>
   );

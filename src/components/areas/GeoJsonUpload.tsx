@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Upload, FileJson, CheckCircle2, Loader2, AlertTriangle, MapPin } from "lucide-react";
+import { areaApi } from "@/lib/api";
+import { toast } from "sonner";
 
 interface Props {
   onComplete: () => void;
@@ -79,10 +81,20 @@ export function GeoJsonUpload({ onComplete }: Props) {
   const handleSave = async () => {
     if (!isValid || !name.trim()) return;
     setIsSaving(true);
-    // TODO: POST area with manual source
-    await new Promise((r) => setTimeout(r, 1200));
-    setIsSaving(false);
-    onComplete();
+    try {
+      await areaApi.importGeojson({
+        name: name.trim(),
+        city: city.trim() || undefined,
+        country: country.trim() || undefined,
+        geometry: JSON.parse(rawJson) as Record<string, unknown>,
+      });
+      toast.success("Area imported successfully.");
+      onComplete();
+    } catch (err) {
+      toast.error((err as Error).message ?? "Failed to save area.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

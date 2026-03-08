@@ -1,6 +1,8 @@
-import { useState } from "react";
-import { ScrollText, User, Clock } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ScrollText, User, Clock, Loader2 } from "lucide-react";
 import { DataTable, Column } from "@/components/shared/DataTable";
+import { auditApi, type AuditEntry as ApiAuditEntry } from "@/lib/api";
+import { toast } from "sonner";
 
 interface AuditEntry {
   id: string;
@@ -9,27 +11,29 @@ interface AuditEntry {
   role: string;
   target: string;
   timestamp: string;
-  category: "alert" | "area" | "user" | "system" | "subscription";
+  category: string;
 }
 
-const MOCK: AuditEntry[] = [
-  { id: "au1", action: "Alert dispatched", actor: "Adaeze Okonkwo", role: "admin", target: "Severe flooding — Makoko", timestamp: "12 min ago", category: "alert" },
-  { id: "au2", action: "Alert approved", actor: "Dr. Ibrahim Musa", role: "stakeholder", target: "High risk — Ajegunle", timestamp: "1h ago", category: "alert" },
-  { id: "au3", action: "Area imported", actor: "Adaeze Okonkwo", role: "admin", target: "Victoria Island (manual)", timestamp: "3h ago", category: "area" },
-  { id: "au4", action: "User role updated", actor: "Adaeze Okonkwo", role: "admin", target: "Amina Bello → coordinator", timestamp: "1d ago", category: "user" },
-  { id: "au5", action: "Risk computed", actor: "System", role: "system", target: "All areas — 7 areas processed", timestamp: "18 min ago", category: "system" },
-  { id: "au6", action: "Alert rejected", actor: "Dr. Ibrahim Musa", role: "stakeholder", target: "Flash flood alert — VI", timestamp: "2d ago", category: "alert" },
-  { id: "au7", action: "Subscription created", actor: "Public", role: "public", target: "+234 801***4567 → Makoko, Ajegunle", timestamp: "5h ago", category: "subscription" },
-  { id: "au8", action: "Ingestion triggered", actor: "Adaeze Okonkwo", role: "admin", target: "Open-Meteo pipeline", timestamp: "42 min ago", category: "system" },
-  { id: "au9", action: "Alert drafted", actor: "Kofi Boateng", role: "coordinator", target: "Flash flood — Alajo", timestamp: "3h ago", category: "alert" },
-  { id: "au10", action: "Area boundary updated", actor: "Adaeze Okonkwo", role: "admin", target: "Nima polygon revised", timestamp: "4h ago", category: "area" },
-  { id: "au11", action: "User invited", actor: "Adaeze Okonkwo", role: "admin", target: "emeka@nema.gov.ng", timestamp: "5h ago", category: "user" },
-  { id: "au12", action: "Subscription cancelled", actor: "Public", role: "public", target: "+234 701***6789 → Surulere", timestamp: "6h ago", category: "subscription" },
-  { id: "au13", action: "Risk threshold updated", actor: "Adaeze Okonkwo", role: "admin", target: "Severe min → 0.80", timestamp: "8h ago", category: "system" },
-  { id: "au14", action: "Alert sent", actor: "System", role: "system", target: "Moderate advisory — Adabraka (2,100 recipients)", timestamp: "1d ago", category: "alert" },
-  { id: "au15", action: "DEM data ingested", actor: "System", role: "system", target: "Copernicus DEM — 50 tiles updated", timestamp: "2d ago", category: "system" },
-  { id: "au16", action: "User deactivated", actor: "Adaeze Okonkwo", role: "admin", target: "Amina Bello", timestamp: "3d ago", category: "user" },
-];
+function deriveCategory(resourceType?: string | null): string {
+  const t = (resourceType ?? "").toLowerCase();
+  if (t.includes("alert")) return "alert";
+  if (t.includes("area")) return "area";
+  if (t.includes("user")) return "user";
+  if (t.includes("sub")) return "subscription";
+  return "system";
+}
+
+function adaptAudit(r: ApiAuditEntry): AuditEntry {
+  return {
+    id: r.id,
+    action: r.action,
+    actor: r.user_name ?? "System",
+    role: r.user_role?.toLowerCase() ?? "system",
+    target: [r.resource_type, r.resource_id].filter(Boolean).join(": ") || "—",
+    timestamp: new Date(r.created_at).toLocaleString(),
+    category: deriveCategory(r.resource_type),
+  };
+}
 
 const catColor: Record<string, string> = {
   alert: "bg-severity-high/15 text-severity-high",
@@ -84,9 +88,22 @@ const columns: Column<AuditEntry>[] = [
 ];
 
 export default function AuditPage() {
+  const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
-  const filtered = categoryFilter === "all" ? MOCK : MOCK.filter((e) => e.category === categoryFilter);
+  useEffect(() => {
+    let cancelled = false;
+    auditApi.list({ page_size: "100" })
+      .then((res) => {
+        if (!cancelled) setEntries((res.data?.items ?? []).map(adaptAudit));
+      })
+      .catch(() => toast.error("Failed to load audit log."))
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const filtered = categoryFilter === "all" ? entries : entries.filter((e) => e.category === categoryFilter);
 
   return (
     <div className="p-6 space-y-6 max-w-7xl">
@@ -118,8 +135,8 @@ export default function AuditPage() {
         pageSize={8}
         searchable
         searchKeys={["action", "actor", "target"] as any}
-        emptyIcon={<ScrollText className="h-8 w-8 opacity-50" />}
-        emptyMessage="No audit entries found"
+        emptyIcon={loading ? <Loader2 className="h-8 w-8 opacity-50 animate-spin" /> : <ScrollText className="h-8 w-8 opacity-50" />}
+        emptyMessage={loading ? "Loading audit log..." : "No audit entries found"}
       />
     </div>
   );

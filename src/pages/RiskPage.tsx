@@ -42,7 +42,20 @@ function toExplanation(json: unknown): string {
   if (typeof json === "string") return json;
   if (typeof json === "object") {
     const obj = json as Record<string, unknown>;
-    return (obj.summary as string) || (obj.explanation as string) || (obj.text as string) || JSON.stringify(json);
+    // Backend format: { method, mean, p50, p90, max, tile_count }
+    if (obj.method !== undefined) {
+      const pct = (v: unknown) => typeof v === "number" ? `${(v * 100).toFixed(1)}%` : String(v);
+      return (
+        `Method: ${obj.method} · ` +
+        `Mean: ${pct(obj.mean)} · ` +
+        `p50: ${pct(obj.p50)} · ` +
+        `p90: ${pct(obj.p90)} · ` +
+        `Max: ${pct(obj.max)}` +
+        (obj.tile_count != null ? ` · Tiles: ${obj.tile_count}` : "")
+      );
+    }
+    // Fallback: human-readable prose keys
+    return (obj.summary as string) || (obj.explanation as string) || (obj.text as string) || JSON.stringify(obj);
   }
   return "No explanation available.";
 }
@@ -60,7 +73,7 @@ function adaptRow(item: AreaRiskItem, areaMap: Record<string, AreaRecord>): Risk
   return {
     id: item.area_id,
     name: area?.name ?? `Area ${item.area_id.slice(0, 6)}`,
-    city: item.city ?? area?.city ?? "—",
+    city: area?.city ?? "—",
     riskScore: item.aggregated_score ?? 0,
     riskLevel: toRiskLevel(item.risk_level),
     tiles: item.tile_count ?? 0,
@@ -89,7 +102,7 @@ export default function RiskPage() {
         ]);
         if (cancelled) return;
         const areaMap: Record<string, AreaRecord> = {};
-        (areasRes.data?.items ?? []).forEach((a: AreaRecord) => { areaMap[a.area_id] = a; });
+        (areasRes.data?.items ?? []).forEach((a: AreaRecord) => { areaMap[a.id] = a; });
         const items: AreaRiskItem[] = riskRes.data?.items ?? [];
         setRows(items.map((item) => adaptRow(item, areaMap)));
         const latest = items.map((i) => i.run_at).filter(Boolean).sort().at(-1);

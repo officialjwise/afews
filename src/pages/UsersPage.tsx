@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, Column } from "@/components/shared/DataTable";
-import { Users, Shield, Mail, MoreVertical, Plus, Edit, Trash2, MapPin } from "lucide-react";
+import { Users, Shield, Mail, MoreVertical, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import { AppRole, ROLE_META } from "@/lib/roles";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -14,76 +14,86 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { userApi, type UserRecord } from "@/lib/api";
 
 interface User {
   id: string;
   name: string;
   email: string;
   role: AppRole;
-  assignedAreas?: string[];
   lastActive: string;
   status: "active" | "inactive";
 }
 
-const MOCK_USERS: User[] = [
-  { id: "u1", name: "Adaeze Okonkwo", email: "admin@afews.org", role: "admin", lastActive: "2 min ago", status: "active" },
-  { id: "u2", name: "Dr. Ibrahim Musa", email: "stakeholder@nema.gov.ng", role: "stakeholder", lastActive: "1h ago", status: "active" },
-  { id: "u3", name: "Chidi Nwosu", email: "coordinator@afews.org", role: "coordinator", assignedAreas: ["Makoko", "Ajegunle"], lastActive: "30 min ago", status: "active" },
-  { id: "u4", name: "Amina Bello", email: "amina@afews.org", role: "coordinator", assignedAreas: ["Lekki Phase 1"], lastActive: "3d ago", status: "inactive" },
-  { id: "u5", name: "Emeka Obi", email: "emeka@nema.gov.ng", role: "stakeholder", lastActive: "5h ago", status: "active" },
-  { id: "u6", name: "Kofi Boateng", email: "kofi@afews.org", role: "coordinator", assignedAreas: ["Alajo", "Nima"], lastActive: "15 min ago", status: "active" },
-  { id: "u7", name: "Fatima Yusuf", email: "fatima@nema.gov.ng", role: "stakeholder", lastActive: "2d ago", status: "active" },
-  { id: "u8", name: "Kwame Asante", email: "kwame@afews.org", role: "admin", lastActive: "1h ago", status: "active" },
-  { id: "u9", name: "Ngozi Eze", email: "ngozi@afews.org", role: "coordinator", assignedAreas: ["Osu", "Adabraka"], lastActive: "4h ago", status: "active" },
-  { id: "u10", name: "Yaw Mensah", email: "yaw@afews.org", role: "coordinator", assignedAreas: ["Kaneshie"], lastActive: "1w ago", status: "inactive" },
-  { id: "u11", name: "Grace Owusu", email: "grace@nema.gov.ng", role: "stakeholder", lastActive: "6h ago", status: "active" },
-  { id: "u12", name: "Samuel Ofori", email: "samuel@afews.org", role: "admin", lastActive: "3h ago", status: "active" },
-];
+function adaptUser(r: UserRecord): User {
+  return {
+    id: r.id,
+    name: r.full_name,
+    email: r.email,
+    role: r.role.toLowerCase() as AppRole,
+    lastActive: r.last_login_at
+      ? new Date(r.last_login_at).toLocaleString()
+      : new Date(r.created_at).toLocaleDateString(),
+    status: r.is_active ? "active" : "inactive",
+  };
+}
 
 const ROLE_OPTIONS = ["all", "admin", "coordinator", "stakeholder"] as const;
 const STATUS_OPTIONS = ["all", "active", "inactive"] as const;
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [newUser, setNewUser] = useState<{ name: string; email: string; role: AppRole }>({ name: "", email: "", role: "stakeholder" });
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  useEffect(() => {
+    let cancelled = false;
+    userApi.list()
+      .then((res) => {
+        if (!cancelled) setUsers((res.data?.items ?? []).map(adaptUser));
+      })
+      .catch(() => toast.error("Failed to load users."))
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleInvite = () => {
+    toast.info("User registration must be performed via the /register endpoint. Provide the staff member with credentials.");
+    setIsInviteOpen(false);
+  };
+
+  const handleEditRole = (user: User) => { setEditingUser(user); setIsEditOpen(true); };
+
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+    setEditSaving(true);
+    try {
+      await userApi.updateRole(editingUser.id, editingUser.role.toUpperCase());
+      setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
+      setIsEditOpen(false); setEditingUser(null);
+      toast.success("Role updated.");
+    } catch (err) {
+      toast.error((err as Error).message ?? "Failed to update role.");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const handleDeactivate = (_userId: string) => {
+    toast.info("User deactivation is not yet supported via the API.");
+  };
 
   const filteredUsers = users.filter((u) => {
     if (roleFilter !== "all" && u.role !== roleFilter) return false;
     if (statusFilter !== "all" && u.status !== statusFilter) return false;
     return true;
   });
-
-  const handleInvite = () => {
-    if (!newUser.name || !newUser.email) { toast.error("Please fill in all fields"); return; }
-    const user: User = {
-      id: `u${users.length + 1}`, name: newUser.name, email: newUser.email,
-      role: newUser.role, status: "active", lastActive: "Just now",
-      assignedAreas: newUser.role === "coordinator" ? [] : undefined
-    };
-    setUsers([...users, user]);
-    setIsInviteOpen(false);
-    setNewUser({ name: "", email: "", role: "stakeholder" });
-    toast.success("User invited successfully");
-  };
-
-  const handleEditRole = (user: User) => { setEditingUser(user); setIsEditOpen(true); };
-
-  const handleUpdateUser = () => {
-    if (!editingUser) return;
-    setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
-    setIsEditOpen(false); setEditingUser(null);
-    toast.success("User updated successfully");
-  };
-
-  const handleDeactivate = (userId: string) => {
-    setUsers(users.map(u => u.id === userId ? { ...u, status: "inactive" } : u));
-    toast.success("User deactivated");
-  };
 
   const columns: Column<User>[] = [
     {
@@ -101,16 +111,6 @@ export default function UsersPage() {
         const meta = ROLE_META[r.role];
         return <span className={`inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-semibold ${meta.color}`}>{meta.label}</span>;
       },
-    },
-    {
-      key: "areas", header: "Assigned Areas",
-      render: (r) => r.assignedAreas ? (
-        <div className="flex gap-1 flex-wrap">
-          {r.assignedAreas.map((a) => (
-            <span key={a} className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px]">{a}</span>
-          ))}
-        </div>
-      ) : <span className="text-xs text-muted-foreground">—</span>,
     },
     {
       key: "status", header: "Status",
@@ -133,9 +133,6 @@ export default function UsersPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleEditRole(r)}><Edit className="mr-2 h-3.5 w-3.5" /> Edit role</DropdownMenuItem>
-            {r.role === "coordinator" && (
-              <DropdownMenuItem onClick={() => toast.info("Area assignment implementation pending")}><MapPin className="mr-2 h-3.5 w-3.5" /> Assign areas</DropdownMenuItem>
-            )}
             <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeactivate(r.id)}>
               <Trash2 className="mr-2 h-3.5 w-3.5" /> Deactivate
             </DropdownMenuItem>
@@ -189,8 +186,8 @@ export default function UsersPage() {
         pageSize={5}
         searchable
         searchKeys={["name", "email"] as any}
-        emptyIcon={<Users className="h-8 w-8 opacity-50" />}
-        emptyMessage="No users found"
+        emptyIcon={loading ? <Loader2 className="h-8 w-8 opacity-50 animate-spin" /> : <Users className="h-8 w-8 opacity-50" />}
+        emptyMessage={loading ? "Loading users..." : "No users found"}
       />
 
       {/* Invite User Dialog */}
@@ -256,7 +253,9 @@ export default function UsersPage() {
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdateUser}>Save Changes</Button>
+            <Button onClick={handleUpdateUser} disabled={editSaving}>
+              {editSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
