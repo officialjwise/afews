@@ -1,69 +1,93 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import { AppRole, UserProfile, hasPermission, PermissionKey } from "@/lib/roles";
+import { authApi, tokenStore, TokenData } from "@/lib/api";
 
 interface AuthContextValue {
   user: UserProfile | null;
   role: AppRole;
   isAuthenticated: boolean;
+  isLoading: boolean;
   can: (permission: PermissionKey) => boolean;
-  switchRole: (role: AppRole) => void;
-  login: (profile: UserProfile) => void;
-  logout: () => void;
+  login: (tokenData: TokenData) => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// Demo user profiles — Ghana-based
-const DEMO_USERS: Record<AppRole, UserProfile> = {
-  admin: {
-    id: "demo-admin",
-    email: "admin@afews.org",
-    displayName: "Kwame Asante",
-    role: "admin",
-  },
-  stakeholder: {
-    id: "demo-stakeholder",
-    email: "stakeholder@nadmo.gov.gh",
-    displayName: "Dr. Ama Mensah",
-    role: "stakeholder",
-  },
-  coordinator: {
-    id: "demo-coordinator",
-    email: "coordinator@afews.org",
-    displayName: "Kofi Boateng",
-    role: "coordinator",
-    assignedAreas: ["Alajo", "Nima"],
-  },
-};
+/** Parse the JWT payload (base64url) without verifying the signature. */
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const [, payload] = token.split(".");
+    return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+  } catch {
+    return null;
+  }
+}
+
+function profileFromToken(token: string): UserProfile | null {
+  const claims = decodeJwtPayload(token);
+  if (!claims) return null;
+  const role = (claims.role as AppRole) || "coordinator";
+  return {
+    id: (claims.sub as string) || "",
+    email: (claims.email as string) || "",
+    displayName: (claims.email as string) || "Staff",
+    role,
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserProfile>(DEMO_USERS.admin);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Restore session from localStorage on first mount
+  useEffect(() => {
+    const token = tokenStore.getAccess();
+    if (token) {
+      const profile = profileFromToken(token);
+      // Check token expiry
+      const claims = decodeJwtPayload(token);
+      const exp = claims?.exp as number | undefined;
+      if (exp && exp * 1000 > Date.now()) {
+        setUser(profile);
+      } else {
+        tokenStore.clear();
+      }
+    }
+    setIsLoading(false);
+  }, []);
+
+  const login = useCallback((tokenData: TokenData) => {
+    tokenStore.set(tokenData.access_token, tokenData.refresh_token);
+    setUser(profileFromToken(tokenData.access_token));
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Ignore errors — clear local session regardless
+    }
+    tokenStore.clear();
+    setUser(null);
+  }, []);
 
   const can = useCallback(
-    (permission: PermissionKey) => hasPermission(user.role, permission),
-    [user.role]
+    (permission: PermissionKey) => {
+      if (!user) return false;
+      return hasPermission(user.role, permission);
+    },
+    [user]
   );
-
-  const switchRole = useCallback((role: AppRole) => {
-    setUser(DEMO_USERS[role]);
-  }, []);
-
-  const login = useCallback((profile: UserProfile) => {
-    setUser(profile);
-  }, []);
-
-  const logout = useCallback(() => {
-    setUser(DEMO_USERS.admin);
-  }, []);
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        role: user.role,
-        isAuthenticated: true,
+        role: user?.role ?? "coordinator",
+        isAuthenticated: user !== null,
+        isLoading,
         can,
-        switchRole,
         login,
         logout,
       }}
@@ -78,3 +102,4 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
+

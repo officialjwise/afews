@@ -7,6 +7,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PhoneInput } from "@/components/ui/phone-input";
 import afewsLogo from "@/assets/afews-logo.png";
+import { authApi, areaApi, subscriptionApi, AreaOption as ApiArea, ApiError } from "@/lib/api";
 
 type Step = "phone" | "otp" | "areas" | "done";
 
@@ -14,21 +15,9 @@ interface AreaOption {
   id: string; name: string; city: string; riskLevel: "low" | "moderate" | "high" | "severe";
 }
 
-const AREAS: AreaOption[] = [
-  { id: "a1", name: "Alajo", city: "Accra", riskLevel: "severe" },
-  { id: "a2", name: "Nima", city: "Accra", riskLevel: "high" },
-  { id: "a3", name: "Adabraka", city: "Accra", riskLevel: "moderate" },
-  { id: "a4", name: "Osu", city: "Accra", riskLevel: "moderate" },
-  { id: "a5", name: "Kaneshie", city: "Accra", riskLevel: "low" },
-  { id: "a6", name: "Odawna", city: "Accra", riskLevel: "severe" },
-  { id: "a7", name: "Ashaiman", city: "Tema", riskLevel: "moderate" },
-  { id: "a8", name: "Ablekuma", city: "Accra", riskLevel: "low" },
-  { id: "a9", name: "Madina", city: "Accra", riskLevel: "high" },
-  { id: "a10", name: "Teshie", city: "Accra", riskLevel: "moderate" },
-];
-
 const riskBadgeVariant: Record<string, "critical" | "high" | "moderate" | "low"> = {
   severe: "critical", high: "high", moderate: "moderate", low: "low",
+  SEVERE: "critical", HIGH: "high", MODERATE: "moderate", LOW: "low",
 };
 
 export default function PublicSubscribe() {
@@ -38,8 +27,30 @@ export default function PublicSubscribe() {
   const [otpCode, setOtpCode] = useState("");
   const [phoneToken, setPhoneToken] = useState<string | null>(null);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
+  const [areas, setAreas] = useState<AreaOption[]>([]);
+  const [areasLoading, setAreasLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch available areas from the API when the component mounts
+  useEffect(() => {
+    setAreasLoading(true);
+    areaApi.list()
+      .then((res) => {
+        setAreas(
+          res.data.map((a: ApiArea) => ({
+            id: a.id,
+            name: a.name,
+            city: a.city,
+            riskLevel: "moderate" as const, // default until risk data is fetched
+          }))
+        );
+      })
+      .catch(() => {
+        // Non-fatal: areas list is needed but we can show empty state
+      })
+      .finally(() => setAreasLoading(false));
+  }, []);
 
   const handleSendOtp = async () => {
     setError(null);
@@ -50,19 +61,41 @@ export default function PublicSubscribe() {
       setError("Please enter a valid phone number."); return;
     }
     setIsLoading(true);
-    try { await new Promise((r) => setTimeout(r, 1200)); setStep("otp"); }
-    catch { setError("Failed to send verification code."); }
-    finally { setIsLoading(false); }
+    try {
+      // Send OTP for the first selected channel; subscription covers all channels
+      const primaryChannel = channels.has("sms") ? "sms" : "whatsapp";
+      await authApi.requestOtp(phone, primaryChannel);
+      setStep("otp");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        setError("Too many requests. Please wait a moment before trying again.");
+      } else {
+        setError("Failed to send verification code. Please check your phone number and try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleVerifyOtp = useCallback(async () => {
     setError(null);
     if (otpCode.length < 6) { setError("Please enter the full 6-digit code."); return; }
     setIsLoading(true);
-    try { await new Promise((r) => setTimeout(r, 1000)); setPhoneToken("mock_token"); setStep("areas"); }
-    catch { setError("Invalid verification code."); }
-    finally { setIsLoading(false); }
-  }, [otpCode]);
+    try {
+      const res = await authApi.verifyOtp(phone, otpCode);
+      setPhoneToken(res.data.otp_token);
+      setStep("areas");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        setError("Too many attempts. Please wait before trying again.");
+      } else {
+        setError("Invalid or expired verification code. Please try again.");
+      }
+      setOtpCode("");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [phone, otpCode]);
 
   // Auto-verify when OTP is complete
   useEffect(() => {
@@ -74,9 +107,27 @@ export default function PublicSubscribe() {
   const handleSubscribe = async () => {
     setError(null);
     if (selectedAreas.length === 0) { setError("Please select at least one area."); return; }
+    if (!phoneToken) { setError("Session expired. Please verify your phone again."); setStep("phone"); return; }
     setIsLoading(true);
-    try { await new Promise((r) => setTimeout(r, 1200)); setStep("done"); }
-    catch { setError("Subscription failed."); }
+    try {
+      await subscriptionApi.optIn({
+        phone,
+        channels: [...channels],
+        phone_token: phoneToken,
+        area_ids: selectedAreas,
+      });
+      setStep("done");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // Already subscribed — treat as success
+        setStep("done");
+      } else if (err instanceof ApiError && err.status === 401) {
+        setError("Session expired. Please verify your phone again.");
+        setPhoneToken(null);
+        setStep("otp");
+      } else {
+        setError("Subscription failed. Please try again.");
+      }
     finally { setIsLoading(false); }
   };
 
@@ -190,8 +241,10 @@ export default function PublicSubscribe() {
               <h2 className="text-lg font-semibold tracking-tight">Select Areas to Monitor</h2>
               <p className="text-sm text-muted-foreground">Choose the neighbourhoods you want to receive flood alerts for.</p>
             </div>
+            {areasLoading && <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
+            {!areasLoading && areas.length === 0 && <p className="text-sm text-muted-foreground">No areas available. Please try again later.</p>}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {AREAS.map((area) => (
+              {areas.map((area) => (
                 <button key={area.id} onClick={() => toggleArea(area.id)}
                   className={`flex items-center justify-between px-3 py-2.5 rounded-md border text-left transition-colors ${
                     selectedAreas.includes(area.id) ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20" : "bg-card border-border hover:bg-muted/50"
@@ -230,7 +283,7 @@ export default function PublicSubscribe() {
             <div className="text-left max-w-sm mx-auto space-y-1.5">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Subscribed areas</p>
               <div className="space-y-1">
-                {AREAS.filter((a) => selectedAreas.includes(a.id)).map((area) => (
+                {areas.filter((a) => selectedAreas.includes(a.id)).map((area) => (
                   <div key={area.id} className="flex items-center justify-between rounded-sm bg-muted/50 px-3 py-1.5 text-sm">
                     <span className="flex items-center gap-2"><MapPin className="h-3 w-3 text-muted-foreground" /> {area.name}</span>
                     <Badge variant={riskBadgeVariant[area.riskLevel]} className="text-[10px]">{area.riskLevel}</Badge>

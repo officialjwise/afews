@@ -9,22 +9,13 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-
-interface AreaOption {
-  id: string; name: string; city: string; riskLevel: "low" | "moderate" | "high" | "severe";
-}
-
-const ALL_AREAS: AreaOption[] = [
-  { id: "a1", name: "Alajo", city: "Accra", riskLevel: "severe" },
-  { id: "a2", name: "Nima", city: "Accra", riskLevel: "high" },
-  { id: "a3", name: "Adabraka", city: "Accra", riskLevel: "moderate" },
-  { id: "a4", name: "Osu", city: "Accra", riskLevel: "moderate" },
-  { id: "a5", name: "Kaneshie", city: "Accra", riskLevel: "low" },
-  { id: "a6", name: "Odawna", city: "Accra", riskLevel: "severe" },
-];
+import { authApi, areaApi, subscriptionApi, type AreaOption as ApiArea, type AreaRisk, type SubscriptionManageData, ApiError } from "@/lib/api";
 
 const riskBadgeVariant: Record<string, "critical" | "high" | "moderate" | "low"> = {
-  severe: "critical", high: "high", moderate: "moderate", low: "low",
+  SEVERE: "critical", severe: "critical",
+  HIGH: "high",     high: "high",
+  MODERATE: "moderate", moderate: "moderate",
+  LOW: "low",       low: "low",
 };
 
 type Step = "verify" | "otp" | "manage";
@@ -35,31 +26,80 @@ export default function ManageSubscription() {
   const [channels, setChannels] = useState<Set<"sms" | "whatsapp">>(new Set(["sms"]));
   const [otpCode, setOtpCode] = useState("");
   const [phoneToken, setPhoneToken] = useState<string | null>(null);
-  const [subscribedAreas, setSubscribedAreas] = useState<string[]>(["a1", "a2", "a3"]);
+  const [subscribedAreas, setSubscribedAreas] = useState<string[]>([]);
+  const [areas, setAreas] = useState<ApiArea[]>([]);
+  const [areasLoading, setAreasLoading] = useState(false);
+  const [subData, setSubData] = useState<SubscriptionManageData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [optOutDialog, setOptOutDialog] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Fetch available areas on mount
+  useEffect(() => {
+    setAreasLoading(true);
+    areaApi.list()
+      .then((res) => setAreas(res.data ?? []))
+      .catch(() => { /* silently ignore — user sees empty grid */ })
+      .finally(() => setAreasLoading(false));
+  }, []);
 
   const handleSendOtp = async () => {
     setError(null);
     if (channels.size === 0) { setError("Please select at least one alert channel."); return; }
     if (!phone || phone.length < 6) { setError("Please enter a valid phone number."); return; }
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setIsLoading(false);
-    setStep("otp");
+    try {
+      const channel = channels.has("whatsapp") ? "whatsapp" : "sms";
+      await authApi.requestOtp(phone, channel);
+      setStep("otp");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        setError("Too many requests. Please wait a moment before trying again.");
+      } else {
+        setError("Failed to send verification code. Please check your number and try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleVerifyOtp = useCallback(async () => {
     setError(null);
     if (otpCode.length < 6) { setError("Please enter the full 6-digit code."); return; }
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setPhoneToken("mock_phone_token_43chars_xxxxxxxxxxxxxxxx");
-    setIsLoading(false);
-    setStep("manage");
-  }, [otpCode]);
+    try {
+      const res = await authApi.verifyOtp(phone, otpCode);
+      const token = res.data.otp_token;
+      setPhoneToken(token);
+
+      // Load existing subscription data
+      try {
+        const subRes = await subscriptionApi.getManageView(phone, token);
+        const data = subRes.data;
+        setSubData(data);
+        setSubscribedAreas(data.areas.map((a: AreaRisk) => a.area_id));
+      } catch {
+        // No active subscription is fine — user can still manage
+        setSubData(null);
+        setSubscribedAreas([]);
+      }
+
+      setStep("manage");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        setError("Too many attempts. Please wait before trying again.");
+      } else if (err instanceof ApiError && err.status === 401) {
+        setError("Invalid or expired code. Please request a new one.");
+        setOtpCode("");
+      } else {
+        setError("Verification failed. Please try again.");
+        setOtpCode("");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [otpCode, phone]);
 
   // Auto-verify when OTP is complete
   useEffect(() => {
@@ -74,21 +114,62 @@ export default function ManageSubscription() {
   };
 
   const handleUpdateAreas = async () => {
+    if (!phoneToken) return;
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setIsLoading(false);
-    setSaved(true);
+    setError(null);
+    try {
+      const channel = channels.has("whatsapp") ? "whatsapp" : "sms";
+      await subscriptionApi.updateAreas({
+        phone,
+        channel,
+        phone_token: phoneToken,
+        area_ids: subscribedAreas,
+      });
+      setSaved(true);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setError("Your session has expired. Please verify your phone again.");
+        setStep("verify");
+      } else {
+        setError("Failed to update areas. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleOptOut = async () => {
+    if (!phoneToken) return;
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setIsLoading(false);
-    setOptOutDialog(false);
-    setStep("verify");
-    setPhone("");
-    setOtpCode("");
-    setPhoneToken(null);
+    setError(null);
+    try {
+      const activeChannels = subData?.channels.length
+        ? subData.channels
+        : Array.from(channels as Set<string>);
+      await Promise.all(
+        activeChannels.map((ch) =>
+          subscriptionApi.optOut({ phone, channel: ch, phone_token: phoneToken! })
+        )
+      );
+      setOptOutDialog(false);
+      setStep("verify");
+      setPhone("");
+      setOtpCode("");
+      setPhoneToken(null);
+      setSubData(null);
+      setSubscribedAreas([]);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setError("Your session has expired. Please verify your phone again.");
+        setOptOutDialog(false);
+        setStep("verify");
+      } else {
+        setError("Failed to unsubscribe. Please try again.");
+        setOptOutDialog(false);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -172,19 +253,27 @@ export default function ManageSubscription() {
           <div className="space-y-6">
             <div className="space-y-2">
               <h3 className="text-sm font-semibold">Your subscribed areas</h3>
+              {areasLoading && <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
+              {!areasLoading && areas.length === 0 && <p className="text-sm text-muted-foreground">No areas available. Please try again later.</p>}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {ALL_AREAS.map((area) => (
-                  <button key={area.id} onClick={() => toggleArea(area.id)}
-                    className={`flex items-center justify-between px-3 py-2.5 rounded-md border text-left transition-colors ${subscribedAreas.includes(area.id) ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20" : "bg-card border-border hover:bg-muted/50"}`}>
-                    <div className="flex items-center gap-2.5">
-                      <div className={`h-4 w-4 rounded-sm border flex items-center justify-center ${subscribedAreas.includes(area.id) ? "bg-primary border-primary" : "border-input"}`}>
-                        {subscribedAreas.includes(area.id) && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
+                {areas.map((area) => {
+                  const riskData = subData?.areas.find((a) => a.area_id === area.id);
+                  const riskLevel = riskData?.risk_level ?? null;
+                  return (
+                    <button key={area.id} onClick={() => toggleArea(area.id)}
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-md border text-left transition-colors ${subscribedAreas.includes(area.id) ? "bg-primary/5 border-primary/40 ring-1 ring-primary/20" : "bg-card border-border hover:bg-muted/50"}`}>
+                      <div className="flex items-center gap-2.5">
+                        <div className={`h-4 w-4 rounded-sm border flex items-center justify-center ${subscribedAreas.includes(area.id) ? "bg-primary border-primary" : "border-input"}`}>
+                          {subscribedAreas.includes(area.id) && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
+                        </div>
+                        <span className="text-sm font-medium">{area.name}</span>
                       </div>
-                      <span className="text-sm font-medium">{area.name}</span>
-                    </div>
-                    <Badge variant={riskBadgeVariant[area.riskLevel]} className="text-[10px]">{area.riskLevel}</Badge>
-                  </button>
-                ))}
+                      {riskLevel && (
+                        <Badge variant={riskBadgeVariant[riskLevel]} className="text-[10px]">{riskLevel.toLowerCase()}</Badge>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <div className="flex items-center gap-3">
