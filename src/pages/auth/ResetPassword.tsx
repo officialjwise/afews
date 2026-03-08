@@ -11,7 +11,7 @@ import { authApi } from "@/lib/api";
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get("token") ?? "";
+  const ref = searchParams.get("ref") ?? searchParams.get("token") ?? "";
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -37,8 +37,8 @@ export default function ResetPassword() {
     }
     setIsLoading(true);
     try {
-      if (!token) throw new Error("Reset link is invalid or missing.");
-      await authApi.resetPassword(token, password);
+      if (!ref) throw new Error("Reset link is invalid or missing.");
+      await authApi.resetPassword(ref, password);
       setDone(true);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to reset password. The link may have expired.";

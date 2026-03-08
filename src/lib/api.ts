@@ -588,13 +588,12 @@ export const ingestionApi = {
       "open-meteo":     "open_meteo",
       "chirps":         "chirps",
       "copernicus-dem": "copernicus_dem",
-      "osm":            "osm",
       "nasa-gpm":       "nasa_gpm",
     };
     const sourceName = SOURCE_MAP[sourceId] ?? sourceId.replace(/-/g, "_");
     return request<APIEnvelope<unknown>>("/jobs/ingest", {
       method: "POST",
-      body: { source_name: sourceName, city: "Accra", horizon_hours: 24 },
+      body: { source_name: sourceName, city: "Accra", horizon_hours: [24] },
     });
   },
 };

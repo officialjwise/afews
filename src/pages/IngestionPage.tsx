@@ -12,7 +12,6 @@ const DATA_SOURCES = [
   { id: "open-meteo", name: "Open-Meteo", type: "Weather Forecast", frequency: "Every 6 hours", lastRun: "2 hours ago", status: "healthy", icon: CloudRain, description: "Global weather forecast data including precipitation, temperature, and wind." },
   { id: "chirps", name: "CHIRPS", type: "Historical Rainfall", frequency: "Daily", lastRun: "1 day ago", status: "healthy", icon: Database, description: "Climate Hazards Group InfraRed Precipitation with Station data (30+ year history)." },
   { id: "copernicus-dem", name: "Copernicus DEM", type: "Digital Elevation Model", frequency: "On Demand", lastRun: "30 days ago", status: "healthy", icon: Layers, description: "High-resolution digital elevation model (GLO-30) for terrain analysis." },
-  { id: "osm", name: "OpenStreetMap", type: "Vector Data", frequency: "Weekly", lastRun: "5 days ago", status: "warning", icon: Globe, description: "Building footprints, roads, and critical infrastructure data via Overpass API." },
 ];
 
 const PIPELINE_LOGS = [
