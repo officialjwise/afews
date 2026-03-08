@@ -235,6 +235,18 @@ export interface DeliveryRow {
   dispatched_at?: string | null;
 }
 
+/** Tile grid cell returned by GET /areas/{id}/tiles. */
+export interface TileRecord {
+  id: string;
+  city: string;
+  row_idx: number;
+  col_idx: number;
+  area_id?: string | null;
+  geom_wkt?: string | null;
+  centroid_wkt?: string | null;
+  created_at: string;
+}
+
 /** Audit log entry returned by GET /audit. */
 export interface AuditEntry {
   id: string;
@@ -244,6 +256,7 @@ export interface AuditEntry {
   user_role?: string | null;
   resource_type?: string | null;
   resource_id?: string | null;
+  resource_name?: string | null;
   details_json?: unknown;
   created_at: string;
 }
@@ -434,8 +447,10 @@ export const areaApi = {
     request<APIEnvelope<AreaRecord>>("/areas", { method: "POST", body: data }),
   update: (id: string, data: unknown) =>
     request<APIEnvelope<AreaRecord>>(`/areas/${id}`, { method: "PATCH", body: data }),
-  generateTiles: (id: string) =>
-    request<APIEnvelope<unknown>>(`/areas/${id}/tiles/generate`, { method: "POST" }),
+  getTiles: (id: string, params?: Record<string, string>) =>
+    request<APIEnvelope<{ tiles: TileRecord[] }>>(`/areas/${id}/tiles`, { params }),
+  generateTiles: (id: string, body?: { resolution_deg?: number }) =>
+    request<APIEnvelope<{ tiles_created: number }>>(`/areas/${id}/tiles/generate`, { method: "POST", body: { area_id: id, ...(body ?? {}) } }),
   importSearch: (data: { name: string; city?: string; source_preference?: string }) =>
     request<APIEnvelope<AreaImportCandidate[]>>("/areas/import/search", { method: "POST", body: data }),
   importConfirm: (data: {
@@ -514,6 +529,8 @@ export const userApi = {
   get: (id: string) => request<APIEnvelope<UserRecord>>(`/users/${id}`),
   updateRole: (id: string, role: string) =>
     request<APIEnvelope<void>>(`/users/${id}/role`, { method: "PUT", body: { role } }),
+  invite: (data: { email: string; full_name: string; role: string; phone?: string }) =>
+    request<APIEnvelope<UserRecord>>("/users/invite", { method: "POST", body: data }),
 };
 
 // Health
