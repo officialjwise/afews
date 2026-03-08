@@ -118,22 +118,30 @@ export default function ManageSubscription() {
     setIsLoading(true);
     setError(null);
     try {
-      // Use the actual subscription channels from the loaded data, not the
-      // channel chosen for OTP delivery. A user may have subscribed via
-      // WHATSAPP but chosen SMS to receive the verification code.
-      const activeChannels: string[] = subData?.channels?.length
-        ? subData.channels
-        : [channels.has("whatsapp") ? "WHATSAPP" : "SMS"];
-
-      // Update areas for every channel sequentially (same phone_token is
-      // valid across calls since the backend now uses _peek_phone_otp).
-      for (const ch of activeChannels) {
-        await subscriptionApi.updateAreas({
+      if (!subData) {
+        // New subscriber — opt in with the channels selected in the verify step
+        const selectedChannels = Array.from(channels as Set<string>).map(ch => ch.toUpperCase());
+        await subscriptionApi.optIn({
           phone,
-          channel: ch,
+          channels: selectedChannels,
           phone_token: phoneToken,
           area_ids: subscribedAreas,
         });
+        // Build a synthetic subData so the UI switches to "Update areas" mode.
+        // Don't re-query (token is still valid but area details aren't needed now).
+        setSubData({ phone, channels: selectedChannels, areas: [] });
+      } else {
+        // Existing subscriber — update areas for every active channel.
+        // Uses _peek_phone_otp server-side so token stays valid across saves.
+        const activeChannels = subData.channels;
+        for (const ch of activeChannels) {
+          await subscriptionApi.updateAreas({
+            phone,
+            channel: ch,
+            phone_token: phoneToken,
+            area_ids: subscribedAreas,
+          });
+        }
       }
       setSaved(true);
     } catch (err) {
@@ -288,11 +296,13 @@ export default function ManageSubscription() {
             </div>
             <div className="flex items-center gap-3">
               <Button onClick={handleUpdateAreas} disabled={isLoading}>
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? (<><CheckCircle2 className="h-4 w-4" /> Saved</>) : "Update areas"}
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? (<><CheckCircle2 className="h-4 w-4" /> Saved</>) : subData ? "Update areas" : "Subscribe to alerts"}
               </Button>
-              <Button variant="outline" className="text-severity-critical hover:text-severity-critical" onClick={() => setOptOutDialog(true)}>
-                <Trash2 className="h-3.5 w-3.5" /> Unsubscribe
-              </Button>
+              {subData && (
+                <Button variant="outline" className="text-severity-critical hover:text-severity-critical" onClick={() => setOptOutDialog(true)}>
+                  <Trash2 className="h-3.5 w-3.5" /> Unsubscribe
+                </Button>
+              )}
             </div>
             <Link to="/subscribe" className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline">
               <ArrowLeft className="h-3.5 w-3.5" /> Back to subscribe page
