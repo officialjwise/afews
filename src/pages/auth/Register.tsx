@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { authApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +22,7 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<string>("");
+  const [otpToken, setOtpToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,10 +38,11 @@ export default function Register() {
     if (!phone || phone.length < 6) { setError("Please enter a valid phone number."); return; }
     setIsLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 1200));
+      await authApi.requestOtp(phone, "sms");
       setStep("verify");
-    } catch { setError("Failed to send verification code."); }
-    finally { setIsLoading(false); }
+    } catch {
+      setError("Failed to send verification code. Please check the phone number and try again.");
+    } finally { setIsLoading(false); }
   };
 
   const handleVerifyOtp = useCallback(async () => {
@@ -47,10 +50,12 @@ export default function Register() {
     if (otpCode.length < 6) { setError("Please enter the full 6-digit code."); return; }
     setIsLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 1000));
+      const res = await authApi.verifyOtp(phone, otpCode);
+      setOtpToken(res.data.otp_token);
       setStep("details");
-    } catch { setError("Invalid verification code."); }
-    finally { setIsLoading(false); }
+    } catch {
+      setError("Invalid or expired verification code. Please try again.");
+    } finally { setIsLoading(false); }
   }, [otpCode]);
 
   // Auto-verify OTP
@@ -67,10 +72,12 @@ export default function Register() {
     if (!passwordValid) { setError("Password must be at least 8 characters with uppercase, lowercase, and a digit."); return; }
     setIsLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 1500));
+      await authApi.register({ full_name: fullName, email, password, role, phone_token: otpToken });
       window.location.href = "/verify-email";
-    } catch { setError("Registration failed. Please try again."); }
-    finally { setIsLoading(false); }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Registration failed. Please try again.";
+      setError(msg);
+    } finally { setIsLoading(false); }
   };
 
   const stepLabels: Record<Step, string> = {

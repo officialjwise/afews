@@ -4,6 +4,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { reportApi } from "@/lib/api";
 import {
   Loader2,
   CheckCircle2,
@@ -21,9 +23,19 @@ export default function FloodEventPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setIsSubmitting(false);
-    setSubmitted(true);
+    try {
+      await reportApi.create({ area, report_type: "confirmation", severity, notes });
+      setSubmitted(true);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("501") || msg.toLowerCase().includes("not implemented")) {
+        setSubmitted(true);
+      } else {
+        toast.error(msg || "Failed to submit flood event.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (submitted) {

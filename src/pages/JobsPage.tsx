@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { StatusIndicator } from "@/components/StatusIndicator";
 import { Play, Loader2, CheckCircle2, Clock, Database, Cloud, Layers, Activity } from "lucide-react";
+import { toast } from "sonner";
+import { jobApi } from "@/lib/api";
 
 interface Job {
   id: string;
@@ -26,10 +28,16 @@ export default function JobsPage() {
 
   const triggerJob = async (id: string) => {
     setRunning(id);
-    await new Promise((r) => setTimeout(r, 2500));
-    setRunning(null);
-    setCompleted((prev) => new Set(prev).add(id));
-    setTimeout(() => setCompleted((prev) => { const n = new Set(prev); n.delete(id); return n; }), 3000);
+    try {
+      await jobApi.trigger(id);
+      setCompleted((prev) => new Set(prev).add(id));
+      toast.success("Job triggered successfully.");
+      setTimeout(() => setCompleted((prev) => { const n = new Set(prev); n.delete(id); return n; }), 3000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to trigger job.");
+    } finally {
+      setRunning(null);
+    }
   };
 
   return (

@@ -84,6 +84,42 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 
   const response = await fetch(url, config);
 
+  // Auto-refresh: on 401, try refreshing the token once then retry
+  if (response.status === 401 && auth) {
+    const refresh = tokenStore.getRefresh();
+    if (refresh) {
+      try {
+        const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refresh }),
+        });
+        if (refreshRes.ok) {
+          const envelope = await refreshRes.json() as APIEnvelope<TokenData>;
+          tokenStore.set(envelope.data.access_token, envelope.data.refresh_token);
+          // Retry original request with new token
+          headers["Authorization"] = `Bearer ${envelope.data.access_token}`;
+          const retryRes = await fetch(url, { ...config, headers });
+          if (!retryRes.ok) {
+            const errData = await retryRes.json().catch(() => null);
+            const msg =
+              (errData as { error?: { message?: string } })?.error?.message ??
+              (errData as { message?: string })?.message ??
+              `Request failed: ${retryRes.statusText}`;
+            throw new ApiError(msg, retryRes.status, errData);
+          }
+          if (retryRes.status === 204) return undefined as T;
+          return retryRes.json();
+        }
+      } catch {
+        // Refresh failed — clear tokens so AuthContext redirects to login
+        tokenStore.clear();
+      }
+    }
+    // No refresh token or refresh failed
+    tokenStore.clear();
+  }
+
   if (!response.ok) {
     const errorData = await response.json().catch(() => null);
     const message =
@@ -124,6 +160,53 @@ export interface AreaOption {
   name: string;
   city: string;
   country: string;
+}
+
+/** Full area record returned by GET /areas. */
+export interface AreaRecord {
+  id: string;
+  name: string;
+  city: string;
+  country: string;
+  source?: string | null;
+  source_external_id?: string | null;
+  source_query?: string | null;
+  boundary?: Record<string, unknown> | null;
+  centroid_lon?: number | null;
+  centroid_lat?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Area risk summary item returned by GET /risk/areas. */
+export interface AreaRiskItem {
+  id: string;
+  area_id: string;
+  run_at: string;
+  horizon_h: number;
+  aggregated_score: number;
+  risk_level: "LOW" | "MODERATE" | "HIGH" | "SEVERE";
+  tile_count: number;
+  explanation_json?: unknown;
+}
+
+/** Alert record returned by the alerts API. */
+export interface AlertRecord {
+  id: string;
+  area_id?: string | null;
+  horizon_h: number;
+  risk_level: "LOW" | "MODERATE" | "HIGH" | "SEVERE";
+  status: "DRAFT" | "APPROVED" | "REJECTED" | "SENT";
+  title: string;
+  message: string;
+  created_by: string;
+  approved_by?: string | null;
+  rejected_by?: string | null;
+  rejection_reason?: string | null;
+  approved_at?: string | null;
+  sent_at?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AreaRisk {
@@ -173,8 +256,41 @@ export const authApi = {
       body: { email, password, otp_code },
     }),
 
+  register: (data: {
+    full_name: string;
+    email: string;
+    password: string;
+    role: string;
+    phone_token: string;
+  }) =>
+    request<APIEnvelope<TokenData>>("/auth/register", {
+      method: "POST",
+      auth: false,
+      body: data,
+    }),
+
   logout: () =>
     request<APIEnvelope<null>>("/auth/logout", { method: "POST" }),
+
+  forgotPassword: (email: string) =>
+    request<APIEnvelope<unknown>>("/auth/forgot-password", {
+      method: "POST",
+      auth: false,
+      body: { email },
+    }),
+
+  resetPassword: (token: string, password: string) =>
+    request<APIEnvelope<unknown>>("/auth/reset-password", {
+      method: "POST",
+      auth: false,
+      body: { token, password },
+    }),
+
+  changePassword: (current_password: string, new_password: string) =>
+    request<APIEnvelope<unknown>>("/auth/change-password", {
+      method: "POST",
+      body: { current_password, new_password },
+    }),
 
   refreshToken: (refresh_token: string) =>
     request<APIEnvelope<TokenData>>("/auth/refresh", {
@@ -237,19 +353,21 @@ export const subscriptionApi = {
 // Areas
 export const areaApi = {
   list: (params?: Record<string, string>) =>
-    request<APIEnvelope<AreaOption[]>>("/areas", { params }),
+    request<APIEnvelope<AreaRecord[]>>("/areas", { params }),
   get: (id: string) =>
-    request<APIEnvelope<AreaOption>>(`/areas/${id}`),
+    request<APIEnvelope<AreaRecord>>(`/areas/${id}`),
   create: (data: unknown) =>
-    request<APIEnvelope<AreaOption>>("/areas", { method: "POST", body: data }),
+    request<APIEnvelope<AreaRecord>>("/areas", { method: "POST", body: data }),
   update: (id: string, data: unknown) =>
-    request<APIEnvelope<AreaOption>>(`/areas/${id}`, { method: "PATCH", body: data }),
+    request<APIEnvelope<AreaRecord>>(`/areas/${id}`, { method: "PATCH", body: data }),
 };
 
 // Risk
 export const riskApi = {
   overview: (params?: Record<string, string>) =>
-    request<APIEnvelope<unknown[]>>("/risk", { params }),
+    request<APIEnvelope<{ items: AreaRiskItem[] }>>("/risk/areas", { params }),
+  hotspots: (params?: Record<string, string>) =>
+    request<APIEnvelope<AreaRiskItem[]>>("/risk/hotspots", { params }),
   getArea: (areaId: string, horizon?: string) =>
     request<APIEnvelope<unknown>>(`/risk/areas/${areaId}`, {
       params: horizon ? { horizon } : undefined,
@@ -259,11 +377,17 @@ export const riskApi = {
 // Alerts
 export const alertApi = {
   list: (params?: Record<string, string>) =>
-    request<APIEnvelope<unknown[]>>("/alerts", { params }),
+    request<APIEnvelope<{ items: AlertRecord[]; page: number; page_size: number }>>("/alerts", { params }),
   get: (id: string) =>
-    request<APIEnvelope<unknown>>(`/alerts/${id}`),
-  create: (data: unknown) =>
-    request<APIEnvelope<unknown>>("/alerts", { method: "POST", body: data }),
+    request<APIEnvelope<AlertRecord>>(`/alerts/${id}`),
+  create: (data: {
+    area_id?: string;
+    horizon_h: number;
+    risk_level: string;
+    title: string;
+    message: string;
+  }) =>
+    request<APIEnvelope<AlertRecord>>("/alerts/draft", { method: "POST", body: data }),
   approve: (id: string) =>
     request<APIEnvelope<unknown>>(`/alerts/${id}/approve`, { method: "POST" }),
   reject: (id: string, reason: string) =>
@@ -284,14 +408,8 @@ export const deliveryApi = {
 export const reportApi = {
   list: (params?: Record<string, string>) =>
     request<APIEnvelope<unknown[]>>("/reports", { params }),
-  create: (data: FormData) => {
-    const token = tokenStore.getAccess();
-    return fetch(`${API_BASE_URL}/reports`, {
-      method: "POST",
-      body: data,
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-  },
+  create: (data: { area: string; report_type: string; severity: string; notes: string }) =>
+    request<APIEnvelope<unknown>>("/reports", { method: "POST", body: data }),
 };
 
 // Users
@@ -317,8 +435,24 @@ export const auditApi = {
 // Jobs
 export const jobApi = {
   list: () => request<APIEnvelope<unknown[]>>("/jobs"),
-  trigger: (jobType: string) =>
-    request<APIEnvelope<unknown>>(`/jobs/${jobType}/trigger`, { method: "POST" }),
+  trigger: (jobType: string) => {
+    if (jobType === "compute-risk") {
+      return request<APIEnvelope<unknown>>("/jobs/compute-risk", {
+        method: "POST",
+        body: { city: "Accra", horizon_h: 24 },
+      });
+    }
+    const sourceMap: Record<string, string> = {
+      "ingest-openmeteo": "open_meteo",
+      "ingest-chirps": "chirps",
+      "ingest-dem": "copernicus_dem",
+      "compute-features": "open_meteo",
+    };
+    return request<APIEnvelope<unknown>>("/jobs/ingest", {
+      method: "POST",
+      body: { city: "Accra", source_name: sourceMap[jobType] ?? jobType },
+    });
+  },
 };
 
 // Settings / Profile
@@ -326,4 +460,10 @@ export const settingsApi = {
   getProfile: () => request<APIEnvelope<unknown>>("/auth/me"),
   updateProfile: (data: unknown) =>
     request<APIEnvelope<unknown>>("/profile", { method: "PUT", body: data }),
+};
+
+// Ingestion
+export const ingestionApi = {
+  trigger: (sourceId: string) =>
+    request<APIEnvelope<unknown>>(`/ingestion/${sourceId}/trigger`, { method: "POST" }),
 };

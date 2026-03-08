@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, KeyRound } from "lucide-react";
 import { AuthShell } from "./Login";
+import { authApi } from "@/lib/api";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -23,13 +24,12 @@ export default function ForgotPassword() {
     }
     setIsLoading(true);
     try {
-      // TODO: POST /v1/auth/password/reset-request
-      await new Promise((r) => setTimeout(r, 1200));
-      setSent(true);
+      await authApi.forgotPassword(email.trim());
     } catch {
-      setError("Something went wrong. Please try again.");
+      // Always show sent state to avoid email enumeration
     } finally {
       setIsLoading(false);
+      setSent(true);
     }
   };
 

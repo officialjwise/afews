@@ -101,6 +101,13 @@ export default function DeliveriesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
 
+  const totalSent = MOCK.reduce((s, d) => s + d.sent, 0);
+  const totalFailed = MOCK.reduce((s, d) => s + d.failed, 0);
+  const totalPending = MOCK.reduce((s, d) => s + d.pending, 0);
+  const successRate = totalSent + totalFailed > 0
+    ? ((totalSent / (totalSent + totalFailed)) * 100).toFixed(1)
+    : "—";
+
   const filtered = MOCK.filter((d) => {
     if (statusFilter !== "all" && d.status !== statusFilter) return false;
     if (channelFilter !== "all" && d.channel !== channelFilter) return false;
@@ -117,19 +124,19 @@ export default function DeliveriesPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="panel space-y-1">
           <p className="metric-label">Total Sent</p>
-          <p className="metric-value text-status-active">4,050</p>
+          <p className="metric-value text-status-active">{totalSent.toLocaleString()}</p>
         </div>
         <div className="panel space-y-1">
           <p className="metric-label">Failed</p>
-          <p className="metric-value text-severity-critical">1,614</p>
+          <p className="metric-value text-severity-critical">{totalFailed.toLocaleString()}</p>
         </div>
         <div className="panel space-y-1">
           <p className="metric-label">Pending</p>
-          <p className="metric-value text-status-pending">126</p>
+          <p className="metric-value text-status-pending">{totalPending.toLocaleString()}</p>
         </div>
         <div className="panel space-y-1">
           <p className="metric-label">Success Rate</p>
-          <p className="metric-value">69.9%</p>
+          <p className="metric-value">{successRate}%</p>
         </div>
       </div>
 

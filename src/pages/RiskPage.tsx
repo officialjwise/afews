@@ -1,39 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Activity, MapPin, X, Clock, TrendingUp, Droplets, Mountain, Brain } from "lucide-react";
+import { Activity, MapPin, X, Clock, Brain } from "lucide-react";
+import { toast } from "sonner";
+import { riskApi, areaApi, type AreaRiskItem, type AreaRecord } from "@/lib/api";
 
 type RiskLevel = "low" | "moderate" | "high" | "severe";
-type Horizon = "6h" | "24h" | "72h";
 
-interface RiskArea {
+interface RiskRow {
   id: string;
   name: string;
   city: string;
   riskScore: number;
   riskLevel: RiskLevel;
   tiles: number;
-  rainfall: number;
-  elevation: number;
-  slope: number;
   explanation: string;
   computedAt: string;
-  horizon: Horizon;
+  horizon: string;
 }
-
-const MOCK_RISK: RiskArea[] = [
-  { id: "a1", name: "Alajo", city: "Accra", riskScore: 0.94, riskLevel: "severe", tiles: 48, rainfall: 185, elevation: 2.1, slope: 0.8, explanation: "Critically low elevation along the Odaw River with sustained heavy rainfall exceeding all drainage capacity thresholds.", computedAt: "18 min ago", horizon: "72h" },
-  { id: "a2", name: "Nima", city: "Accra", riskScore: 0.87, riskLevel: "severe", tiles: 36, rainfall: 160, elevation: 3.4, slope: 1.2, explanation: "Below-average elevation with high 72h cumulative rainfall and limited drainage infrastructure in dense settlement.", computedAt: "18 min ago", horizon: "72h" },
-  { id: "a3", name: "Adabraka", city: "Accra", riskScore: 0.74, riskLevel: "high", tiles: 52, rainfall: 130, elevation: 5.6, slope: 2.1, explanation: "Moderate-low elevation with above-average rainfall intensity. Urbanisation reduces natural absorption.", computedAt: "18 min ago", horizon: "24h" },
-  { id: "a4", name: "Osu", city: "Accra", riskScore: 0.61, riskLevel: "high", tiles: 44, rainfall: 110, elevation: 6.2, slope: 2.4, explanation: "Moderate elevation with persistent rainfall. Some flood-prone pockets near the coast.", computedAt: "18 min ago", horizon: "24h" },
-  { id: "a5", name: "Odawna", city: "Accra", riskScore: 0.91, riskLevel: "severe", tiles: 40, rainfall: 195, elevation: 1.5, slope: 0.4, explanation: "Extremely low-lying market area adjacent to Korle Lagoon with severe flood history.", computedAt: "18 min ago", horizon: "72h" },
-  { id: "a6", name: "Kaneshie", city: "Accra", riskScore: 0.48, riskLevel: "moderate", tiles: 40, rainfall: 95, elevation: 4.8, slope: 1.6, explanation: "Mixed risk profile — low-lying sections near the Odaw offset by better drainage.", computedAt: "18 min ago", horizon: "6h" },
-  { id: "a7", name: "East Legon", city: "Accra", riskScore: 0.25, riskLevel: "low", tiles: 56, rainfall: 45, elevation: 12.0, slope: 4.1, explanation: "Well-elevated area with good drainage and below-average rainfall accumulation.", computedAt: "18 min ago", horizon: "6h" },
-];
 
 const badgeVariant: Record<RiskLevel, "critical" | "high" | "moderate" | "low"> = {
   severe: "critical", high: "high", moderate: "moderate", low: "low",
@@ -44,18 +32,87 @@ const riskColor = (score: number) =>
   score >= 0.6 ? "text-severity-high" :
   score >= 0.4 ? "text-severity-moderate" : "text-severity-low";
 
+function toRiskLevel(raw: string): RiskLevel {
+  const m: Record<string, RiskLevel> = { SEVERE: "severe", HIGH: "high", MODERATE: "moderate", LOW: "low" };
+  return m[raw?.toUpperCase()] ?? "low";
+}
+
+function toExplanation(json: unknown): string {
+  if (!json) return "No explanation available.";
+  if (typeof json === "string") return json;
+  if (typeof json === "object") {
+    const obj = json as Record<string, unknown>;
+    return (obj.summary as string) || (obj.explanation as string) || (obj.text as string) || JSON.stringify(json);
+  }
+  return "No explanation available.";
+}
+
+function timeAgo(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return `${Math.round(diff)}s ago`;
+  if (diff < 3600) return `${Math.round(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+  return `${Math.round(diff / 86400)}d ago`;
+}
+
+function adaptRow(item: AreaRiskItem, areaMap: Record<string, AreaRecord>): RiskRow {
+  const area = areaMap[item.area_id];
+  return {
+    id: item.area_id,
+    name: area?.name ?? `Area ${item.area_id.slice(0, 6)}`,
+    city: item.city ?? area?.city ?? "—",
+    riskScore: item.aggregated_score ?? 0,
+    riskLevel: toRiskLevel(item.risk_level),
+    tiles: item.tile_count ?? 0,
+    explanation: toExplanation(item.explanation_json),
+    computedAt: item.run_at ? timeAgo(item.run_at) : "—",
+    horizon: `${item.horizon_h}h`,
+  };
+}
+
 export default function RiskPage() {
   const [horizon, setHorizon] = useState<string>("all");
   const [cityFilter, setCityFilter] = useState("all");
-  const [selected, setSelected] = useState<RiskArea | null>(null);
+  const [rows, setRows] = useState<RiskRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<RiskRow | null>(null);
+  const [lastComputed, setLastComputed] = useState<string>("—");
 
-  const filtered = MOCK_RISK.filter((r) => {
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [riskRes, areasRes] = await Promise.all([
+          riskApi.overview(),
+          areaApi.list(),
+        ]);
+        if (cancelled) return;
+        const areaMap: Record<string, AreaRecord> = {};
+        (areasRes.data ?? []).forEach((a: AreaRecord) => { areaMap[a.area_id] = a; });
+        const items: AreaRiskItem[] = riskRes.data?.items ?? [];
+        setRows(items.map((item) => adaptRow(item, areaMap)));
+        const latest = items.map((i) => i.run_at).filter(Boolean).sort().at(-1);
+        if (latest) setLastComputed(timeAgo(latest));
+      } catch {
+        toast.error("Failed to load risk data.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filtered = rows.filter((r) => {
     if (horizon !== "all" && r.horizon !== horizon) return false;
+    if (cityFilter !== "all" && r.city.toLowerCase() !== cityFilter) return false;
     return true;
   });
 
   const severeCt = filtered.filter((r) => r.riskLevel === "severe").length;
   const highCt = filtered.filter((r) => r.riskLevel === "high").length;
+  const cities = [...new Set(rows.map((r) => r.city.toLowerCase()).filter((c) => c && c !== "—"))];
 
   return (
     <div className="p-6 space-y-6">
@@ -75,19 +132,19 @@ export default function RiskPage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="panel space-y-1">
           <p className="metric-label">Severe</p>
-          <p className="text-2xl font-bold text-severity-critical">{severeCt}</p>
+          <p className="text-2xl font-bold text-severity-critical">{loading ? "—" : severeCt}</p>
         </div>
         <div className="panel space-y-1">
           <p className="metric-label">High</p>
-          <p className="text-2xl font-bold text-severity-high">{highCt}</p>
+          <p className="text-2xl font-bold text-severity-high">{loading ? "—" : highCt}</p>
         </div>
         <div className="panel space-y-1">
           <p className="metric-label">Total Areas</p>
-          <p className="metric-value">{filtered.length}</p>
+          <p className="metric-value">{loading ? "—" : filtered.length}</p>
         </div>
         <div className="panel space-y-1">
           <p className="metric-label">Last Computed</p>
-          <p className="text-sm font-medium mt-1">18 min ago</p>
+          <p className="text-sm font-medium mt-1">{loading ? "…" : lastComputed}</p>
         </div>
       </div>
 
@@ -111,9 +168,9 @@ export default function RiskPage() {
             <SelectTrigger className="w-32 h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All cities</SelectItem>
-              <SelectItem value="accra">Accra</SelectItem>
-              <SelectItem value="kumasi">Kumasi</SelectItem>
-              <SelectItem value="tamale">Tamale</SelectItem>
+              {cities.map((c) => (
+                <SelectItem key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -166,47 +223,53 @@ export default function RiskPage() {
             <div className="px-4 pt-3 pb-2">
               <h2 className="section-header">Hotspot Ranking</h2>
             </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8">#</TableHead>
-                  <TableHead>Area</TableHead>
-                  <TableHead>Risk Score</TableHead>
-                  <TableHead>Level</TableHead>
-                  <TableHead>Horizon</TableHead>
-                  <TableHead className="text-right">Tiles</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered
-                  .sort((a, b) => b.riskScore - a.riskScore)
-                  .map((area, i) => (
-                    <TableRow
-                      key={area.id}
-                      className={`cursor-pointer hover:bg-muted/40 ${selected?.id === area.id ? "bg-muted/60" : ""}`}
-                      onClick={() => setSelected(area)}
-                    >
-                      <TableCell className="font-mono text-xs text-muted-foreground">{i + 1}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="font-medium text-sm">{area.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`font-mono font-semibold ${riskColor(area.riskScore)}`}>
-                          {(area.riskScore * 100).toFixed(0)}%
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={badgeVariant[area.riskLevel]}>{area.riskLevel}</Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{area.horizon}</TableCell>
-                      <TableCell className="text-right font-mono text-sm">{area.tiles}</TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
+            {loading ? (
+              <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">Loading…</div>
+            ) : filtered.length === 0 ? (
+              <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">No risk data available.</div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8">#</TableHead>
+                    <TableHead>Area</TableHead>
+                    <TableHead>Risk Score</TableHead>
+                    <TableHead>Level</TableHead>
+                    <TableHead>Horizon</TableHead>
+                    <TableHead className="text-right">Tiles</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[...filtered]
+                    .sort((a, b) => b.riskScore - a.riskScore)
+                    .map((area, i) => (
+                      <TableRow
+                        key={area.id}
+                        className={`cursor-pointer hover:bg-muted/40 ${selected?.id === area.id ? "bg-muted/60" : ""}`}
+                        onClick={() => setSelected(area)}
+                      >
+                        <TableCell className="font-mono text-xs text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="font-medium text-sm">{area.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`font-mono font-semibold ${riskColor(area.riskScore)}`}>
+                            {(area.riskScore * 100).toFixed(0)}%
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={badgeVariant[area.riskLevel]}>{area.riskLevel}</Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{area.horizon}</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{area.tiles}</TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            )}
           </div>
         </div>
 
@@ -234,30 +297,6 @@ export default function RiskPage() {
               <div>
                 <p className="metric-label mb-1">AI Explanation</p>
                 <p className="text-sm text-muted-foreground leading-relaxed">{selected.explanation}</p>
-              </div>
-
-              <div>
-                <p className="metric-label mb-2">Risk Drivers</p>
-                <div className="space-y-2">
-                  {[
-                    { icon: Droplets, label: `Rainfall (${selected.horizon})`, value: `${selected.rainfall}mm`, pct: Math.min(100, (selected.rainfall / 200) * 100), color: "bg-severity-info", iconColor: "text-severity-info" },
-                    { icon: Mountain, label: "Elevation", value: `${selected.elevation}m`, pct: Math.max(5, 100 - (selected.elevation / 15) * 100), color: "bg-severity-high", iconColor: "text-severity-high" },
-                    { icon: TrendingUp, label: "Slope", value: `${selected.slope}°`, pct: Math.max(5, 100 - (selected.slope / 5) * 100), color: "bg-severity-moderate", iconColor: "text-severity-moderate" },
-                  ].map(({ icon: Icon, label, value, pct, color, iconColor }) => (
-                    <div key={label} className="flex items-center gap-3 text-sm">
-                      <Icon className={`h-4 w-4 ${iconColor} flex-shrink-0`} />
-                      <div className="flex-1">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{label}</span>
-                          <span className="font-mono font-medium">{value}</span>
-                        </div>
-                        <div className="h-1 w-full rounded-full bg-secondary mt-1 overflow-hidden">
-                          <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
 
               <div className="border-t border-border pt-3 space-y-1.5 text-xs text-muted-foreground">

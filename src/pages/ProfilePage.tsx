@@ -13,7 +13,6 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);

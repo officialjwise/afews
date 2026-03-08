@@ -128,7 +128,7 @@ export default function PublicSubscribe() {
       } else {
         setError("Subscription failed. Please try again.");
       }
-    finally { setIsLoading(false); }
+    } finally { setIsLoading(false); }
   };
 
   const toggleArea = (id: string) => setSelectedAreas((prev) => prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id]);

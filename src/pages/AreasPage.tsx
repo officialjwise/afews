@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,40 +11,58 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
-import { MapPin, Plus, Search, Globe, FileJson, ExternalLink } from "lucide-react";
+import { MapPin, Plus, Search, Globe, FileJson, ExternalLink, Loader2 } from "lucide-react";
 import { AreaImportWizard } from "@/components/areas/AreaImportWizard";
 import { GeoJsonUpload } from "@/components/areas/GeoJsonUpload";
 import { toast } from "sonner";
-
-/* ─── Ghana mock data ─── */
-const MOCK_AREAS = [
-  { id: "a1", name: "Alajo", city: "Accra", country: "Ghana", source: "nominatim" as const, tiles: 48, subscribers: 1240, riskLevel: "severe" as const },
-  { id: "a2", name: "Nima", city: "Accra", country: "Ghana", source: "overpass" as const, tiles: 36, subscribers: 890, riskLevel: "high" as const },
-  { id: "a3", name: "Adabraka", city: "Accra", country: "Ghana", source: "nominatim" as const, tiles: 52, subscribers: 2100, riskLevel: "moderate" as const },
-  { id: "a4", name: "Osu", city: "Accra", country: "Ghana", source: "manual" as const, tiles: 44, subscribers: 1560, riskLevel: "moderate" as const },
-  { id: "a5", name: "Kaneshie", city: "Accra", country: "Ghana", source: "nominatim" as const, tiles: 40, subscribers: 720, riskLevel: "low" as const },
-  { id: "a6", name: "Odawna", city: "Accra", country: "Ghana", source: "overpass" as const, tiles: 44, subscribers: 1560, riskLevel: "high" as const },
-  { id: "a7", name: "Ashaiman", city: "Tema", country: "Ghana", source: "nominatim" as const, tiles: 60, subscribers: 980, riskLevel: "moderate" as const },
-  { id: "a8", name: "Ablekuma", city: "Accra", country: "Ghana", source: "overpass" as const, tiles: 38, subscribers: 670, riskLevel: "low" as const },
-];
+import { areaApi, riskApi, type AreaRecord, type AreaRiskItem } from "@/lib/api";
 
 type RiskLevel = "severe" | "high" | "moderate" | "low";
 const riskBadgeVariant: Record<RiskLevel, "critical" | "high" | "moderate" | "low"> = {
   severe: "critical", high: "high", moderate: "moderate", low: "low",
 };
 
-const sourceBadge: Record<string, { label: string; className: string }> = {
-  nominatim: { label: "Nominatim", className: "bg-severity-info/15 text-severity-info border-severity-info/30" },
-  overpass: { label: "Overpass", className: "bg-accent/15 text-accent border-accent/30" },
-  manual: { label: "Manual", className: "bg-muted text-muted-foreground border-border" },
-};
+function riskLevelDisplay(rl: string): RiskLevel {
+  const m: Record<string, RiskLevel> = { SEVERE: "severe", HIGH: "high", MODERATE: "moderate", LOW: "low" };
+  return m[rl.toUpperCase()] ?? "low";
+}
+
+function sourceBadgeClass(source?: string | null) {
+  const s = (source ?? "").toLowerCase();
+  if (s.includes("nominatim")) return "bg-severity-info/15 text-severity-info border-severity-info/30";
+  if (s.includes("overpass")) return "bg-accent/15 text-accent border-accent/30";
+  return "bg-muted text-muted-foreground border-border";
+}
 
 export default function AreasPage() {
   const { can, role } = useAuth();
-  const [search, setSearch] = useState("");
+  const [areas, setAreas]         = useState<AreaRecord[]>([]);
+  const [riskMap, setRiskMap]     = useState<Record<string, AreaRiskItem>>({});
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState("");
   const [importOpen, setImportOpen] = useState(false);
 
-  const filtered = MOCK_AREAS.filter(
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [areasRes, riskRes] = await Promise.all([areaApi.list(), riskApi.overview()]);
+        if (cancelled) return;
+        setAreas(areasRes.data);
+        const rm: Record<string, AreaRiskItem> = {};
+        riskRes.data.items.forEach(r => { rm[r.area_id] = r; });
+        setRiskMap(rm);
+      } catch {
+        toast.error("Failed to load areas");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filtered = areas.filter(
     (a) =>
       a.name.toLowerCase().includes(search.toLowerCase()) ||
       a.city.toLowerCase().includes(search.toLowerCase())
@@ -108,6 +126,9 @@ export default function AreasPage() {
       </div>
 
       <div className="panel p-0 overflow-hidden">
+        {loading ? (
+          <div className="flex justify-center py-16"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -115,47 +136,52 @@ export default function AreasPage() {
               <TableHead>City</TableHead>
               <TableHead>Source</TableHead>
               <TableHead className="text-right">Tiles</TableHead>
-              <TableHead className="text-right">Subscribers</TableHead>
               <TableHead>Risk Level</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((area) => (
-              <TableRow key={area.id} className="cursor-pointer hover:bg-muted/40">
-                <TableCell>
-                  <Link to={`/${role}/areas/${area.id}`} className="flex items-center gap-2 font-medium hover:text-primary transition-colors">
-                    <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                    {area.name}
-                  </Link>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{area.city}</TableCell>
-                <TableCell>
-                  <span className={`inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${sourceBadge[area.source].className}`}>
-                    {sourceBadge[area.source].label}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right font-mono text-sm">{area.tiles}</TableCell>
-                <TableCell className="text-right font-mono text-sm">{area.subscribers.toLocaleString()}</TableCell>
-                <TableCell>
-                  <Badge variant={riskBadgeVariant[area.riskLevel]}>{area.riskLevel}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Link to={`/${role}/areas/${area.id}`}>
-                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                  </Link>
-                </TableCell>
-              </TableRow>
-            ))}
+            {filtered.map((area) => {
+              const risk = riskMap[area.id];
+              const rl = risk ? riskLevelDisplay(risk.risk_level) : null;
+              return (
+                <TableRow key={area.id} className="cursor-pointer hover:bg-muted/40">
+                  <TableCell>
+                    <Link to={`/${role}/areas/${area.id}`} className="flex items-center gap-2 font-medium hover:text-primary transition-colors">
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                      {area.name}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{area.city}</TableCell>
+                  <TableCell>
+                    {area.source ? (
+                      <span className={`inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${sourceBadgeClass(area.source)}`}>
+                        {area.source}
+                      </span>
+                    ) : <span className="text-muted-foreground text-xs">—</span>}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-sm">{risk?.tile_count ?? "—"}</TableCell>
+                  <TableCell>
+                    {rl ? <Badge variant={riskBadgeVariant[rl]}>{rl}</Badge> : <span className="text-muted-foreground text-xs">—</span>}
+                  </TableCell>
+                  <TableCell>
+                    <Link to={`/${role}/areas/${area.id}`}>
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             {filtered.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No areas found matching "{search}"
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  {search ? `No areas found matching "${search}"` : "No areas yet."}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
+        )}
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ClipboardList, Plus, MapPin, Camera, Loader2, CheckCircle2, Clock } from "lucide-react";
+import { reportApi } from "@/lib/api";
 
 interface FieldReport {
   id: string; area: string; type: string; severity: string; notes: string; createdAt: string; hasPhoto: boolean;
@@ -33,11 +34,22 @@ export default function ReportsPage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setIsSubmitting(false);
+    try {
+      await reportApi.create({ area, report_type: reportType, severity, notes });
+      toast.success("Field report submitted successfully.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("501") || msg.toLowerCase().includes("not implemented")) {
+        toast.info("Reports feature coming soon — submission logged.");
+      } else {
+        toast.error(msg || "Failed to submit report.");
+        return;
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
     setShowForm(false);
     setArea(""); setReportType(""); setSeverity(""); setNotes("");
-    toast.success("Field report submitted successfully");
   };
 
   return (

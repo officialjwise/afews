@@ -33,7 +33,6 @@ export default function SettingsPage() {
 
   const handleSave = async (tab: string) => {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 800));
     setSaving(false);
     setSavedTab(tab);
     toast.success("Settings saved successfully");

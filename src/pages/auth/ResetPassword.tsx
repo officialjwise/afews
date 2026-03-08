@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,8 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, LockKeyhole, CheckCircle2 } from "lucide-react";
 import { AuthShell } from "./Login";
+import { authApi } from "@/lib/api";
 
 export default function ResetPassword() {
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token") ?? "";
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -34,11 +37,12 @@ export default function ResetPassword() {
     }
     setIsLoading(true);
     try {
-      // TODO: POST /v1/auth/password/reset
-      await new Promise((r) => setTimeout(r, 1200));
+      if (!token) throw new Error("Reset link is invalid or missing.");
+      await authApi.resetPassword(token, password);
       setDone(true);
-    } catch {
-      setError("Failed to reset password. The link may have expired.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to reset password. The link may have expired.";
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
