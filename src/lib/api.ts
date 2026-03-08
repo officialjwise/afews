@@ -236,6 +236,13 @@ export interface SubscriptionRecord {
   updated_at: string;
 }
 
+export interface SubscriptionStats {
+  active_subscriptions: number;
+  delivery_sent: number;
+  delivery_failed: number;
+  delivery_pending: number;
+}
+
 // ─── API modules ──────────────────────────────────────────────────────────────
 
 // Auth / OTP
@@ -350,10 +357,18 @@ export const subscriptionApi = {
     }),
 };
 
+// Admin aggregates (ADMIN role required)
+export const adminApi = {
+  subscriptionStats: () =>
+    request<APIEnvelope<SubscriptionStats>>("/subscriptions/stats"),
+};
+
 // Areas
 export const areaApi = {
+  listPublic: (params?: Record<string, string>) =>
+    request<APIEnvelope<AreaRecord[]>>("/subscriptions/available-areas", { params, auth: false }),
   list: (params?: Record<string, string>) =>
-    request<APIEnvelope<AreaRecord[]>>("/areas", { params }),
+    request<APIEnvelope<{ items: AreaRecord[] }>>("/areas", { params }),
   get: (id: string) =>
     request<APIEnvelope<AreaRecord>>(`/areas/${id}`),
   create: (data: unknown) =>

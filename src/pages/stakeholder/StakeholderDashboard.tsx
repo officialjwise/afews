@@ -75,8 +75,9 @@ export default function StakeholderDashboard() {
         if (cancelled) return;
 
         const areaMap: Record<string, AreaRecord> = {};
-        (areasRes.data ?? []).forEach((a: AreaRecord) => { areaMap[a.area_id] = a; });
-        setTotalAreas((areasRes.data ?? []).length);
+        const areaItems = areasRes.data?.items ?? [];
+        areaItems.forEach((a: AreaRecord) => { areaMap[a.area_id] = a; });
+        setTotalAreas(areaItems.length);
 
         const alertItems: AlertRecord[] = alertsRes.data?.items ?? [];
         setPendingAlerts(

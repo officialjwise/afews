@@ -69,7 +69,7 @@ export default function CoordinatorDashboard() {
         if (cancelled) return;
 
         const areaMap: Record<string, AreaRecord> = {};
-        (areasRes.data ?? []).forEach((a: AreaRecord) => { areaMap[a.area_id] = a; });
+        (areasRes.data?.items ?? []).forEach((a: AreaRecord) => { areaMap[a.area_id] = a; });
 
         const riskItems: AreaRiskItem[] = riskRes.data?.items ?? [];
         setAreas(

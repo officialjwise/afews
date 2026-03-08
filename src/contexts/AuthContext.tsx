@@ -27,7 +27,8 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 function profileFromToken(token: string): UserProfile | null {
   const claims = decodeJwtPayload(token);
   if (!claims) return null;
-  const role = (claims.role as AppRole) || "coordinator";
+  const rawRole = typeof claims.role === "string" ? claims.role.toLowerCase() : "coordinator";
+  const role = (["admin", "stakeholder", "coordinator"].includes(rawRole) ? rawRole : "coordinator") as AppRole;
   return {
     id: (claims.sub as string) || "",
     email: (claims.email as string) || "",

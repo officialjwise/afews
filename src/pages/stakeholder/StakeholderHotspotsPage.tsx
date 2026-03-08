@@ -77,7 +77,7 @@ export default function StakeholderHotspotsPage() {
         ]);
         if (cancelled) return;
         const areaMap: Record<string, AreaRecord> = {};
-        (areasRes.data ?? []).forEach((a: AreaRecord) => { areaMap[a.area_id] = a; });
+        (areasRes.data?.items ?? []).forEach((a: AreaRecord) => { areaMap[a.area_id] = a; });
         const items: AreaRiskItem[] = (hotRes.data ?? []) as AreaRiskItem[];
         setHotspots(
           items.map((item) => ({

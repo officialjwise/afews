@@ -32,17 +32,18 @@ export default function PublicSubscribe() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch available areas from the API when the component mounts
+  // Fetch available areas from the public endpoint (no auth required)
   useEffect(() => {
     setAreasLoading(true);
-    areaApi.list()
+    areaApi.listPublic()
       .then((res) => {
+        const items = Array.isArray(res.data) ? res.data : (res.data as any)?.items ?? [];
         setAreas(
-          res.data.map((a: ApiArea) => ({
+          items.map((a: ApiArea) => ({
             id: a.id,
             name: a.name,
             city: a.city,
-            riskLevel: "moderate" as const, // default until risk data is fetched
+            riskLevel: "moderate" as const,
           }))
         );
       })

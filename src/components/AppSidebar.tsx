@@ -94,7 +94,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="overflow-y-hidden hover:overflow-y-auto scrollbar-thin">
         {role === "admin" && (
           <>
             <SidebarGroup>

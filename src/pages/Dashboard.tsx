@@ -9,7 +9,7 @@ import {
   AlertTriangle, MapPin, Grid3X3, Users, Bell, Clock, Droplets,
   CheckCircle2, XCircle, Send, Loader2, Activity, Brain,
 } from "lucide-react";
-import { alertApi, riskApi, areaApi, type AlertRecord, type AreaRiskItem } from "@/lib/api";
+import { alertApi, riskApi, areaApi, adminApi, type AlertRecord, type AreaRiskItem, type SubscriptionStats } from "@/lib/api";
 
 type Severity = "critical" | "high" | "moderate" | "low";
 type AlertRow = { id: string; area: string; severity: Severity; time: string; status: string };
@@ -56,22 +56,34 @@ export default function Dashboard() {
   const [riskAreas, setRiskAreas]       = useState<RiskRow[]>([]);
   const [totalAreas, setTotalAreas]     = useState<number | null>(null);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [totalTiles, setTotalTiles]     = useState<number | null>(null);
+  const [lastRiskRun, setLastRiskRun]   = useState<string | null>(null);
+  const [subStats, setSubStats]         = useState<SubscriptionStats | null>(null);
   const [loading, setLoading]           = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
-        const [alertsRes, riskRes, areasRes] = await Promise.all([
+        const requests: Promise<unknown>[] = [
           alertApi.list({ page_size: "4" }),
           riskApi.overview({ limit: "5" }),
           areaApi.list(),
-        ]);
+        ];
+        if (isAdmin) requests.push(adminApi.subscriptionStats());
+
+        const [alertsRes, riskRes, areasRes, statsRes] = await Promise.all(requests) as [
+          Awaited<ReturnType<typeof alertApi.list>>,
+          Awaited<ReturnType<typeof riskApi.overview>>,
+          Awaited<ReturnType<typeof areaApi.list>>,
+          Awaited<ReturnType<typeof adminApi.subscriptionStats>> | undefined,
+        ];
         if (cancelled) return;
 
         const areaMap: Record<string, string> = {};
-        areasRes.data.forEach(a => { areaMap[a.id] = a.name; });
-        setTotalAreas(areasRes.data.length);
+        const areaItems = areasRes.data?.items ?? [];
+        areaItems.forEach(a => { areaMap[a.id] = a.name; });
+        setTotalAreas(areaItems.length);
 
         const rawAlerts: AlertRecord[] = alertsRes.data.items;
         setRecentAlerts(rawAlerts.map(a => ({
@@ -91,6 +103,19 @@ export default function Dashboard() {
           risk: r.aggregated_score,
           tiles: r.tile_count,
         })));
+
+        // Derived: total tiles and last risk computation timestamp
+        const tiles = rawRisk.reduce((sum, r) => sum + (r.tile_count ?? 0), 0);
+        setTotalTiles(tiles > 0 ? tiles : null);
+
+        if (rawRisk.length > 0) {
+          const mostRecent = rawRisk.reduce((best, r) =>
+            new Date(r.run_at) > new Date(best.run_at) ? r : best
+          );
+          setLastRiskRun(timeAgo(mostRecent.run_at));
+        }
+
+        if (statsRes) setSubStats(statsRes.data);
       } catch {
         // Keep empty state — page still renders with skeleton data
       } finally {
@@ -117,9 +142,9 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard label="Total Areas" value={totalAreas ?? "—"} icon={MapPin} />
-        <MetricCard label="Active Subscriptions" value="8,420" icon={Users} trend={{ value: "12% this week", positive: true }} />
-        <MetricCard label="Pending Draft Alerts" value={pendingCount ?? "—"} icon={Bell} trend={{ value: "2 from yesterday", positive: false }} />
-        <MetricCard label="Active Tiles" value="1,248" icon={Grid3X3} />
+        <MetricCard label="Active Subscriptions" value={subStats ? subStats.active_subscriptions.toLocaleString() : "—"} icon={Users} />
+        <MetricCard label="Pending Draft Alerts" value={pendingCount ?? "—"} icon={Bell} />
+        <MetricCard label="Active Tiles" value={totalTiles !== null ? totalTiles.toLocaleString() : "—"} icon={Grid3X3} />
       </div>
 
       <WeatherDashboard />
@@ -132,7 +157,7 @@ export default function Dashboard() {
               <StatusIndicator status="active" label="" />
               <span className="text-sm font-medium">Last run succeeded</span>
             </div>
-            <p className="text-xs text-muted-foreground">42 min ago · 3 sources synced</p>
+            <p className="text-xs text-muted-foreground">—</p>
           </div>
           <div className="panel space-y-2">
             <p className="metric-label">Risk Computation</p>
@@ -140,14 +165,22 @@ export default function Dashboard() {
               <StatusIndicator status="active" label="" />
               <span className="text-sm font-medium">Up to date</span>
             </div>
-            <p className="text-xs text-muted-foreground">Last computed 18 min ago</p>
+            <p className="text-xs text-muted-foreground">
+              {lastRiskRun ? `Last computed ${lastRiskRun}` : "—"}
+            </p>
           </div>
           <div className="panel space-y-2">
             <p className="metric-label">Delivery Stats</p>
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1 text-sm font-medium text-status-active"><Send className="h-3.5 w-3.5" /> 1,240</span>
-              <span className="flex items-center gap-1 text-sm font-medium text-severity-critical"><XCircle className="h-3.5 w-3.5" /> 18</span>
-              <span className="flex items-center gap-1 text-sm font-medium text-status-pending"><Loader2 className="h-3.5 w-3.5" /> 42</span>
+              <span className="flex items-center gap-1 text-sm font-medium text-status-active">
+                <Send className="h-3.5 w-3.5" /> {subStats ? subStats.delivery_sent.toLocaleString() : "—"}
+              </span>
+              <span className="flex items-center gap-1 text-sm font-medium text-severity-critical">
+                <XCircle className="h-3.5 w-3.5" /> {subStats ? subStats.delivery_failed.toLocaleString() : "—"}
+              </span>
+              <span className="flex items-center gap-1 text-sm font-medium text-status-pending">
+                <Loader2 className="h-3.5 w-3.5" /> {subStats ? subStats.delivery_pending.toLocaleString() : "—"}
+              </span>
             </div>
             <p className="text-xs text-muted-foreground">Sent · Failed · Pending</p>
           </div>
@@ -155,9 +188,9 @@ export default function Dashboard() {
             <p className="metric-label">ML Pipeline</p>
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-status-active animate-pulse" />
-              <span className="text-sm font-medium">Training Active</span>
+              <span className="text-sm font-medium">Active</span>
             </div>
-            <p className="text-xs text-muted-foreground">Feature gen · Risk model v2.1</p>
+            <p className="text-xs text-muted-foreground">—</p>
           </div>
         </div>
       )}
@@ -227,7 +260,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-2">
           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-muted-foreground">Last data sync:</span>
-          <span className="font-medium">4 min ago</span>
+          <span className="font-medium">{lastRiskRun ?? "—"}</span>
         </div>
         <StatusIndicator status="active" label="Risk Engine Online" />
         <StatusIndicator status="active" label="Alert Dispatch Active" />

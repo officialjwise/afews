@@ -79,8 +79,9 @@ export default function AlertsPage() {
         const [areasRes, alertsRes] = await Promise.all([areaApi.list(), alertApi.list({ page_size: "50" })]);
         if (cancelled) return;
         const map: Record<string, string> = {};
-        areasRes.data.forEach(a => { map[a.id] = a.name; });
-        setAreas(areasRes.data);
+        const areaItems = areasRes.data?.items ?? [];
+        areaItems.forEach(a => { map[a.id] = a.name; });
+        setAreas(areaItems);
         setAreaMap(map);
         setAlerts(alertsRes.data.items.map(r => adaptAlert(r, map)));
       } catch {

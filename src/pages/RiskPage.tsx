@@ -89,7 +89,7 @@ export default function RiskPage() {
         ]);
         if (cancelled) return;
         const areaMap: Record<string, AreaRecord> = {};
-        (areasRes.data ?? []).forEach((a: AreaRecord) => { areaMap[a.area_id] = a; });
+        (areasRes.data?.items ?? []).forEach((a: AreaRecord) => { areaMap[a.area_id] = a; });
         const items: AreaRiskItem[] = riskRes.data?.items ?? [];
         setRows(items.map((item) => adaptRow(item, areaMap)));
         const latest = items.map((i) => i.run_at).filter(Boolean).sort().at(-1);

@@ -35,10 +35,10 @@ export default function ManageSubscription() {
   const [optOutDialog, setOptOutDialog] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Fetch available areas on mount
+  // Fetch available areas on mount — public endpoint, no auth required
   useEffect(() => {
     setAreasLoading(true);
-    areaApi.list()
+    areaApi.listPublic()
       .then((res) => setAreas(res.data ?? []))
       .catch(() => { /* silently ignore — user sees empty grid */ })
       .finally(() => setAreasLoading(false));
@@ -118,13 +118,23 @@ export default function ManageSubscription() {
     setIsLoading(true);
     setError(null);
     try {
-      const channel = channels.has("whatsapp") ? "whatsapp" : "sms";
-      await subscriptionApi.updateAreas({
-        phone,
-        channel,
-        phone_token: phoneToken,
-        area_ids: subscribedAreas,
-      });
+      // Use the actual subscription channels from the loaded data, not the
+      // channel chosen for OTP delivery. A user may have subscribed via
+      // WHATSAPP but chosen SMS to receive the verification code.
+      const activeChannels: string[] = subData?.channels?.length
+        ? subData.channels
+        : [channels.has("whatsapp") ? "WHATSAPP" : "SMS"];
+
+      // Update areas for every channel sequentially (same phone_token is
+      // valid across calls since the backend now uses _peek_phone_otp).
+      for (const ch of activeChannels) {
+        await subscriptionApi.updateAreas({
+          phone,
+          channel: ch,
+          phone_token: phoneToken,
+          area_ids: subscribedAreas,
+        });
+      }
       setSaved(true);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {

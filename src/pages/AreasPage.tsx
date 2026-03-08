@@ -48,7 +48,7 @@ export default function AreasPage() {
       try {
         const [areasRes, riskRes] = await Promise.all([areaApi.list(), riskApi.overview()]);
         if (cancelled) return;
-        setAreas(areasRes.data);
+        setAreas(areasRes.data?.items ?? []);
         const rm: Record<string, AreaRiskItem> = {};
         riskRes.data.items.forEach(r => { rm[r.area_id] = r; });
         setRiskMap(rm);
