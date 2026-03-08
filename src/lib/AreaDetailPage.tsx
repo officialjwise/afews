@@ -170,7 +170,7 @@ export default function AreaDetailPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-4">
-          <div className="rounded-md border border-border overflow-hidden" style={{ height: 256 }}>
+          <div className="rounded-md border border-border overflow-hidden" style={{ height: 420, isolation: "isolate" }}>
             <MapContainer
               center={[
                 area.centroid_lat ?? 5.6037,
@@ -191,7 +191,7 @@ export default function AreaDetailPage() {
                     properties: { name: area.name },
                     geometry: area.boundary as GeoJSON.Geometry,
                   }}
-                  style={{ color: "#3b82f6", weight: 2, fillColor: "#3b82f6", fillOpacity: 0.15 }}
+                  style={{ color: "#3b82f6", weight: 2.5, fillColor: "#3b82f6", fillOpacity: 0.1 }}
                 />
               )}
             </MapContainer>

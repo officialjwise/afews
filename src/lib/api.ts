@@ -581,8 +581,20 @@ export const settingsApi = {
     request<APIEnvelope<unknown>>("/auth/me", { method: "PATCH", body: data }),
 };
 
-// Ingestion
+// Ingestion — maps frontend source IDs to the backend /jobs/ingest endpoint
 export const ingestionApi = {
-  trigger: (sourceId: string) =>
-    request<APIEnvelope<unknown>>(`/ingestion/${sourceId}/trigger`, { method: "POST" }),
+  trigger: (sourceId: string) => {
+    const SOURCE_MAP: Record<string, string> = {
+      "open-meteo":     "open_meteo",
+      "chirps":         "chirps",
+      "copernicus-dem": "copernicus_dem",
+      "osm":            "osm",
+      "nasa-gpm":       "nasa_gpm",
+    };
+    const sourceName = SOURCE_MAP[sourceId] ?? sourceId.replace(/-/g, "_");
+    return request<APIEnvelope<unknown>>("/jobs/ingest", {
+      method: "POST",
+      body: { source_name: sourceName, city: "Accra", horizon_hours: 24 },
+    });
+  },
 };

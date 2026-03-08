@@ -3,9 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { HelpTooltip } from "@/components/shared/HelpTooltip";
 import { useAuth } from "@/contexts/AuthContext";
-import { Grid3X3, Play, Loader2, X, MapPin } from "lucide-react";
+import { Grid3X3, Play, Loader2, X, MapPin, Expand } from "lucide-react";
 import { toast } from "sonner";
 import { areaApi, AreaRecord, TileRecord } from "@/lib/api";
 
@@ -84,7 +87,7 @@ export default function TilesPage() {
     }
   };
 
-  // Build display grid: normalise row/col to 0-based for visual layout
+  // Build display grid: sparse 2D map keyed by "row,col"
   const minRow = tiles.length ? Math.min(...tiles.map(t => t.row_idx)) : 0;
   const minCol = tiles.length ? Math.min(...tiles.map(t => t.col_idx)) : 0;
   const maxRow = tiles.length ? Math.max(...tiles.map(t => t.row_idx)) : 0;
@@ -92,8 +95,11 @@ export default function TilesPage() {
   const gridRows = maxRow - minRow + 1;
   const gridCols = maxCol - minCol + 1;
 
-  // Limit display to first 200 tiles for performance
-  const displayTiles = tiles.slice(0, 200);
+  // Sparse lookup: "row_idx,col_idx" → tile
+  const tileMap = new Map(tiles.map(t => [`${t.row_idx},${t.col_idx}`, t]));
+
+  // Expand-to-fullscreen state
+  const [gridExpanded, setGridExpanded] = useState(false);
 
   return (
     <div className="p-6 space-y-6">
@@ -157,24 +163,39 @@ export default function TilesPage() {
                   </div>
                 ) : (
                   <>
-                    <div
-                      className="grid gap-0.5"
-                      style={{ gridTemplateColumns: `repeat(${Math.min(gridCols, 24)}, minmax(0, 1fr))` }}
-                    >
-                      {displayTiles.map((tile) => (
-                        <button
-                          key={tile.id}
-                          onClick={() => setSelectedTile(tile)}
-                          title={`Row ${tile.row_idx}, Col ${tile.col_idx}`}
-                          className={`aspect-square rounded-sm border border-border/60 bg-primary/10 hover:bg-primary/25 transition-colors ${
-                            selectedTile?.id === tile.id ? "ring-2 ring-primary bg-primary/20" : ""
-                          }`}
-                        />
-                      ))}
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">{tiles.length}</span> tiles &mdash; {gridRows} rows &times; {gridCols} cols
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 gap-1 text-xs"
+                        onClick={() => setGridExpanded(true)}
+                      >
+                        <Expand className="h-3 w-3" /> Expand
+                      </Button>
                     </div>
-                    <p className="text-[10px] text-muted-foreground mt-3">
-                      Showing {displayTiles.length} of {tiles.length} tiles ({gridRows} rows × {gridCols} cols)
-                    </p>
+                    <TileGrid
+                      tileMap={tileMap}
+                      minRow={minRow}
+                      minCol={minCol}
+                      gridRows={gridRows}
+                      gridCols={gridCols}
+                      selectedTile={selectedTile}
+                      onSelect={setSelectedTile}
+                    />
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span className="inline-block w-3 h-3 rounded-[2px] bg-primary/20 border border-primary/30" /> Tile cell
+                      </span>
+                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span className="inline-block w-3 h-3 rounded-[2px] border border-dashed border-border/40" /> Empty position
+                      </span>
+                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span className="inline-block w-3 h-3 rounded-[2px] ring-1 ring-primary bg-primary/30" /> Selected
+                      </span>
+                    </div>
                   </>
                 )}
               </div>
@@ -310,8 +331,112 @@ export default function TilesPage() {
           </TabsContent>
         )}
       </Tabs>
+
+      {/* Fullscreen grid dialog */}
+      <Dialog open={gridExpanded} onOpenChange={setGridExpanded}>
+        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh]">
+          <DialogHeader>
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <Grid3X3 className="h-4 w-4" />
+              Tile Grid — {tiles.length} tiles ({gridRows} &times; {gridCols})
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-auto max-h-[75vh]">
+            <TileGrid
+              tileMap={tileMap}
+              minRow={minRow}
+              minCol={minCol}
+              gridRows={gridRows}
+              gridCols={gridCols}
+              selectedTile={selectedTile}
+              onSelect={(t) => { setSelectedTile(t); setGridExpanded(false); }}
+            />
+          </div>
+          <div className="flex items-center gap-4 pt-1">
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <span className="inline-block w-3 h-3 rounded-[2px] bg-primary/20 border border-primary/30" /> Tile cell
+            </span>
+            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <span className="inline-block w-3 h-3 rounded-[2px] border border-dashed border-border/40" /> Empty position
+            </span>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
+/** Renders the 2-D grid at correct row/col positions */
+function TileGrid({
+  tileMap, minRow, minCol, gridRows, gridCols, selectedTile, onSelect,
+}: {
+  tileMap: Map<string, TileRecord>;
+  minRow: number; minCol: number;
+  gridRows: number; gridCols: number;
+  selectedTile: TileRecord | null;
+  onSelect: (t: TileRecord) => void;
+}) {
+  const CELL = 14; // px per cell
+  return (
+    <div className="overflow-auto">
+      <div
+        className="relative"
+        style={{ width: gridCols * (CELL + 1), minWidth: "fit-content" }}
+      >
+        {/* Column index labels every 5 cols */}
+        <div className="flex mb-0.5" style={{ paddingLeft: 0 }}>
+          {Array.from({ length: gridCols }, (_, cOff) =>
+            cOff % 5 === 0 ? (
+              <span
+                key={cOff}
+                className="text-[8px] text-muted-foreground/60 text-center"
+                style={{ width: CELL + 1, flexShrink: 0 }}
+              >
+                {minCol + cOff}
+              </span>
+            ) : (
+              <span key={cOff} style={{ width: CELL + 1, flexShrink: 0 }} />
+            )
+          )}
+        </div>
 
+        {Array.from({ length: gridRows }, (_, rOff) => (
+          <div key={rOff} className="flex items-center">
+            {/* Row index label every 5 rows */}
+            <span
+              className="text-[8px] text-muted-foreground/60 shrink-0 text-right pr-0.5"
+              style={{ width: 28, visibility: rOff % 5 === 0 ? "visible" : "hidden" }}
+            >
+              {minRow + rOff}
+            </span>
+            {Array.from({ length: gridCols }, (_, cOff) => {
+              const tile = tileMap.get(`${minRow + rOff},${minCol + cOff}`);
+              if (tile) {
+                return (
+                  <button
+                    key={tile.id}
+                    onClick={() => onSelect(tile)}
+                    title={`Row ${tile.row_idx}, Col ${tile.col_idx}`}
+                    style={{ width: CELL, height: CELL, flexShrink: 0, marginRight: 1, marginBottom: 1 }}
+                    className={`rounded-[2px] border transition-colors
+                      ${selectedTile?.id === tile.id
+                        ? "ring-1 ring-primary bg-primary/30 border-primary/50"
+                        : "bg-primary/15 border-primary/25 hover:bg-primary/35 hover:border-primary/50"
+                      }`}
+                  />
+                );
+              }
+              return (
+                <div
+                  key={`e-${rOff}-${cOff}`}
+                  style={{ width: CELL, height: CELL, flexShrink: 0, marginRight: 1, marginBottom: 1 }}
+                  className="rounded-[2px] border border-dashed border-border/20"
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

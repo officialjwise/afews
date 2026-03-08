@@ -253,7 +253,7 @@ export default function RiskPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           {/* OSM Leaflet map */}
-          <div className="rounded-md border border-border overflow-hidden" style={{ height: 320 }}>
+          <div className="rounded-md border border-border overflow-hidden" style={{ height: 460 }}>
             <MapContainer
               center={[5.6037, -0.1870]}
               zoom={11}

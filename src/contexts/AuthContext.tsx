@@ -32,7 +32,7 @@ function profileFromToken(token: string): UserProfile | null {
   return {
     id: (claims.sub as string) || "",
     email: (claims.email as string) || "",
-    displayName: (claims.email as string) || "Staff",
+    displayName: (claims.full_name as string) || (claims.email as string) || "Staff",
     role,
   };
 }
