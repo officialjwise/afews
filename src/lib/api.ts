@@ -542,6 +542,8 @@ export const userApi = {
     request<APIEnvelope<UserRecord>>(`/auth/users/${id}/deactivate`, { method: "POST" }),
   activate: (id: string) =>
     request<APIEnvelope<UserRecord>>(`/auth/users/${id}/activate`, { method: "POST" }),
+  softDelete: (id: string) =>
+    request<APIEnvelope<void>>(`/users/${id}`, { method: "DELETE" }),
 };
 
 // Health

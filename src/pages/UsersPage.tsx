@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, Column } from "@/components/shared/DataTable";
-import { Users, Shield, Mail, MoreVertical, Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import { Users, Shield, Mail, MoreVertical, Plus, Edit, Trash2, UserX, Loader2 } from "lucide-react";
 import { AppRole, ROLE_META } from "@/lib/roles";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -58,6 +58,8 @@ export default function UsersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [confirmUser, setConfirmUser] = useState<User | null>(null);
   const [toggling, setToggling] = useState(false);
+  const [deleteUser, setDeleteUser] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +133,21 @@ export default function UsersPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteUser) return;
+    setDeleting(true);
+    try {
+      await userApi.softDelete(deleteUser.id);
+      setUsers((prev) => prev.filter((u) => u.id !== deleteUser.id));
+      toast.success(`${deleteUser.name} has been deleted.`);
+    } catch (err) {
+      toast.error((err as Error).message ?? "Failed to delete user.");
+    } finally {
+      setDeleting(false);
+      setDeleteUser(null);
+    }
+  };
+
   const filteredUsers = users.filter((u) => {
     if (roleFilter !== "all" && u.role !== roleFilter) return false;
     if (statusFilter !== "all" && u.status !== statusFilter) return false;
@@ -181,6 +198,12 @@ export default function UsersPage() {
             >
               <Trash2 className="mr-2 h-3.5 w-3.5" />
               {r.status === "active" ? "Deactivate" : "Activate"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setDeleteUser(r)}
+            >
+              <UserX className="mr-2 h-3.5 w-3.5" /> Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -331,6 +354,31 @@ export default function UsersPage() {
             >
               {toggling ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {confirmUser?.status === "active" ? "Deactivate" : "Activate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm Delete Dialog */}
+      <AlertDialog open={!!deleteUser} onOpenChange={(open) => { if (!open) setDeleteUser(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete user?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {deleteUser?.name}'s account from the system.
+              They will no longer appear in the users list and all their sessions will be terminated.
+              This action cannot be easily undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
