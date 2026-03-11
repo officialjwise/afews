@@ -351,6 +351,13 @@ export const authApi = {
   logout: () =>
     request<APIEnvelope<null>>("/auth/logout", { method: "POST" }),
 
+  verifyEmail: (token: string) =>
+    request<APIEnvelope<unknown>>("/auth/email/verify", {
+      method: "POST",
+      auth: false,
+      body: { token },
+    }),
+
   forgotPassword: (email: string) =>
     request<APIEnvelope<unknown>>("/auth/password/forgot", {
       method: "POST",

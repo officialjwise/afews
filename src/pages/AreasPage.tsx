@@ -16,6 +16,7 @@ import { AreaImportWizard } from "@/components/areas/AreaImportWizard";
 import { GeoJsonUpload } from "@/components/areas/GeoJsonUpload";
 import { toast } from "sonner";
 import { areaApi, riskApi, type AreaRecord, type AreaRiskItem } from "@/lib/api";
+import { encodeId } from "@/lib/id";
 
 type RiskLevel = "severe" | "high" | "moderate" | "low";
 const riskBadgeVariant: Record<RiskLevel, "critical" | "high" | "moderate" | "low"> = {
@@ -151,7 +152,7 @@ export default function AreasPage() {
               return (
                 <TableRow key={area.id} className="cursor-pointer hover:bg-muted/40">
                   <TableCell>
-                    <Link to={`/${role}/areas/${area.id}`} className="flex items-center gap-2 font-medium hover:text-primary transition-colors">
+                    <Link to={`/${role}/areas/${encodeId(area.id)}`} className="flex items-center gap-2 font-medium hover:text-primary transition-colors">
                       <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
                       {area.name}
                     </Link>
@@ -169,7 +170,7 @@ export default function AreasPage() {
                     {rl ? <Badge variant={riskBadgeVariant[rl]}>{rl}</Badge> : <span className="text-muted-foreground text-xs">—</span>}
                   </TableCell>
                   <TableCell>
-                    <Link to={`/${role}/areas/${area.id}`}>
+                    <Link to={`/${role}/areas/${encodeId(area.id)}`}>
                       <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
                     </Link>
                   </TableCell>

@@ -8,6 +8,7 @@ import { WeatherDashboard } from "@/components/weather/WeatherDashboard";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { alertApi, areaApi, riskApi, type AlertRecord, type AreaRecord, type AreaRiskItem } from "@/lib/api";
+import { encodeId } from "@/lib/id";
 import {
   AlertTriangle, MapPin, Bell, Activity, Plus, FileText,
 } from "lucide-react";
@@ -188,7 +189,7 @@ export default function CoordinatorDashboard() {
                 {myAlerts.map((alert) => (
                   <Link
                     key={alert.id}
-                    to={`/coordinator/alerts/${alert.id}`}
+                    to={`/coordinator/alerts/${encodeId(alert.id)}`}
                     className="block rounded-sm border border-border px-3 py-2.5 hover:bg-muted/50 transition-colors"
                   >
                     <p className="text-sm font-medium">{alert.title}</p>

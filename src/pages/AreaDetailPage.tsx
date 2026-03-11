@@ -10,6 +10,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { MapPin, Grid3X3, Users, Activity, ArrowLeft, Pencil, Loader2 } from "lucide-react";
 import { areaApi, riskApi, type AreaRecord, type AreaRiskItem } from "@/lib/api";
+import { decodeId } from "@/lib/id";
 import { toast } from "sonner";
 
 const sourceBadge: Record<string, { label: string; className: string }> = {
@@ -26,7 +27,8 @@ function getSourceBadge(source?: string | null) {
 }
 
 export default function AreaDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id: slug } = useParams<{ id: string }>();
+  const id = slug ? decodeId(slug) : undefined;
   const { can, role } = useAuth();
   const [area, setArea]   = useState<AreaRecord | null>(null);
   const [risk, setRisk]   = useState<AreaRiskItem | null>(null);

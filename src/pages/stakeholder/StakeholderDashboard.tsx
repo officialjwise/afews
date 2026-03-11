@@ -7,6 +7,7 @@ import { WeatherDashboard } from "@/components/weather/WeatherDashboard";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { alertApi, areaApi, riskApi, type AlertRecord, type AreaRecord, type AreaRiskItem } from "@/lib/api";
+import { encodeId } from "@/lib/id";
 import {
   AlertTriangle, MapPin, Activity, Bell, Clock, BarChart3,
 } from "lucide-react";
@@ -153,7 +154,7 @@ export default function StakeholderDashboard() {
               {pendingAlerts.map((alert) => (
                 <Link
                   key={alert.id}
-                  to={`/stakeholder/alerts/${alert.id}`}
+                  to={`/stakeholder/alerts/${encodeId(alert.id)}`}
                   className="block rounded-sm border border-border px-3 py-2.5 hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center justify-between">
