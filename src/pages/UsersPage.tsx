@@ -8,6 +8,10 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -52,6 +56,8 @@ export default function UsersPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [confirmUser, setConfirmUser] = useState<User | null>(null);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -104,8 +110,25 @@ export default function UsersPage() {
     }
   };
 
-  const handleDeactivate = (_userId: string) => {
-    toast.info("User deactivation is not yet supported via the API.");
+  const handleToggleActive = async () => {
+    if (!confirmUser) return;
+    setToggling(true);
+    try {
+      const action = confirmUser.status === "active" ? userApi.deactivate : userApi.activate;
+      const res = await action(confirmUser.id);
+      const updated = adaptUser(res.data);
+      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+      toast.success(
+        confirmUser.status === "active"
+          ? `${confirmUser.name} has been deactivated.`
+          : `${confirmUser.name} has been activated.`,
+      );
+    } catch (err) {
+      toast.error((err as Error).message ?? "Failed to update user status.");
+    } finally {
+      setToggling(false);
+      setConfirmUser(null);
+    }
   };
 
   const filteredUsers = users.filter((u) => {
@@ -152,8 +175,12 @@ export default function UsersPage() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleEditRole(r)}><Edit className="mr-2 h-3.5 w-3.5" /> Edit role</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleDeactivate(r.id)}>
-              <Trash2 className="mr-2 h-3.5 w-3.5" /> Deactivate
+            <DropdownMenuItem
+              className={r.status === "active" ? "text-destructive focus:text-destructive" : ""}
+              onClick={() => setConfirmUser(r)}
+            >
+              <Trash2 className="mr-2 h-3.5 w-3.5" />
+              {r.status === "active" ? "Deactivate" : "Activate"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -281,6 +308,33 @@ export default function UsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Deactivate/Activate Dialog */}
+      <AlertDialog open={!!confirmUser} onOpenChange={(open) => { if (!open) setConfirmUser(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmUser?.status === "active" ? "Deactivate" : "Activate"} user?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmUser?.status === "active"
+                ? `This will deactivate ${confirmUser?.name}'s account and log them out of all sessions. They will not be able to sign in until re-activated.`
+                : `This will re-activate ${confirmUser?.name}'s account, allowing them to sign in again.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={toggling}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleToggleActive}
+              disabled={toggling}
+              className={confirmUser?.status === "active" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+            >
+              {toggling ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {confirmUser?.status === "active" ? "Deactivate" : "Activate"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

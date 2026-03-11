@@ -538,6 +538,10 @@ export const userApi = {
     request<APIEnvelope<void>>(`/users/${id}/role`, { method: "PUT", body: { role } }),
   invite: (data: { email: string; full_name: string; role: string; phone?: string }) =>
     request<APIEnvelope<UserRecord>>("/users/invite", { method: "POST", body: data }),
+  deactivate: (id: string) =>
+    request<APIEnvelope<UserRecord>>(`/auth/users/${id}/deactivate`, { method: "POST" }),
+  activate: (id: string) =>
+    request<APIEnvelope<UserRecord>>(`/auth/users/${id}/activate`, { method: "POST" }),
 };
 
 // Health
